@@ -30,27 +30,50 @@ async function insertAlbum(
   await connection.execute(sql, values)
 }
 
+const buildFilters = ({ keyword = '', categoryId = null, minPrice = null, maxPrice = null, minStock = null, maxStock = null } = {}) => {
+  const clauses = []
+  const values = []
+  if (keyword) {
+    clauses.push('(g.name LIKE ? OR g.spec LIKE ? OR CAST(g.id AS CHAR) = ?)')
+    const likeKeyword = `%${keyword}%`
+    values.push(likeKeyword, likeKeyword, keyword)
+  }
+  if (categoryId !== null) {
+    clauses.push('(g.category_id = ? OR c.pid = ?)')
+    values.push(categoryId, categoryId)
+  }
+  if (minPrice !== null) { clauses.push('g.price >= ?'); values.push(minPrice) }
+  if (maxPrice !== null) { clauses.push('g.price <= ?'); values.push(maxPrice) }
+  if (minStock !== null) { clauses.push('g.stock >= ?'); values.push(minStock) }
+  if (maxStock !== null) { clauses.push('g.stock <= ?'); values.push(maxStock) }
+  return { where: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '', values }
+}
+
 // 分页查询商品
-exports.findPage = async ({
-  offset,
-  pagesize
-}) => {
+exports.findPage = async ({ offset, pagesize, ...filters }) => {
+  const { where, values } = buildFilters(filters)
   const sql = `
     SELECT
-      id,
-      category_id,
-      name,
-      price,
-      picture,
-      stock,
-      spec,
-      description
-    FROM vueshop_goods
-    ORDER BY id DESC
+      g.id,
+      g.category_id,
+      g.name,
+      g.price,
+      g.picture,
+      g.stock,
+      g.spec,
+      g.description,
+      c.name AS category_name,
+      p.name AS parent_category_name
+    FROM vueshop_goods AS g
+    LEFT JOIN vueshop_category AS c ON c.id = g.category_id
+    LEFT JOIN vueshop_category AS p ON p.id = c.pid
+    ${where}
+    ORDER BY g.id DESC
     LIMIT ? OFFSET ?
   `
 
   const [rows] = await db.execute(sql, [
+    ...values,
     pagesize,
     offset
   ])
@@ -64,13 +87,16 @@ exports.findPage = async ({
 }
 
 // 统计商品总数
-exports.countAll = async () => {
+exports.countAll = async (filters = {}) => {
+  const { where, values } = buildFilters(filters)
   const sql = `
     SELECT COUNT(*) AS total
-    FROM vueshop_goods
+    FROM vueshop_goods AS g
+    LEFT JOIN vueshop_category AS c ON c.id = g.category_id
+    ${where}
   `
 
-  const [rows] = await db.execute(sql)
+  const [rows] = await db.execute(sql, values)
 
   return Number(rows[0].total)
 }

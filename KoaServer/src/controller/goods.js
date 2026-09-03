@@ -30,13 +30,30 @@ exports.list = async ctx => {
 
   const offset = (page - 1) * pagesize
 
+  const keyword = typeof ctx.query.keyword === 'string' ? ctx.query.keyword.trim() : ''
+  const categoryId = ctx.query.category_id ? Number(ctx.query.category_id) : null
+  const minPrice = ctx.query.min_price === undefined || ctx.query.min_price === '' ? null : Number(ctx.query.min_price)
+  const maxPrice = ctx.query.max_price === undefined || ctx.query.max_price === '' ? null : Number(ctx.query.max_price)
+  const minStock = ctx.query.min_stock === undefined || ctx.query.min_stock === '' ? null : Number(ctx.query.min_stock)
+  const maxStock = ctx.query.max_stock === undefined || ctx.query.max_stock === '' ? null : Number(ctx.query.max_stock)
+
+  if (keyword.length > 50) { ctx.body = fail('查询关键词不能超过50个字符'); return }
+  if (categoryId !== null && (!Number.isInteger(categoryId) || categoryId <= 0)) { ctx.body = fail('商品分类不正确'); return }
+  if ([minPrice, maxPrice].some(value => value !== null && (!Number.isFinite(value) || value < 0))) { ctx.body = fail('价格区间不正确'); return }
+  if ([minStock, maxStock].some(value => value !== null && (!Number.isInteger(value) || value < 0))) { ctx.body = fail('库存区间不正确'); return }
+  if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) { ctx.body = fail('最低价格不能高于最高价格'); return }
+  if (minStock !== null && maxStock !== null && minStock > maxStock) { ctx.body = fail('最低库存不能高于最高库存'); return }
+
+  const filters = { keyword, categoryId, minPrice, maxPrice, minStock, maxStock }
+
   const list = await goodsService.findPage({
     offset,
-    pagesize
+    pagesize,
+    ...filters
   })
 
   // 查询总数
-  const total = await goodsService.countAll()
+  const total = await goodsService.countAll(filters)
 
   //将总数和列表数据拼接成一个对象返回给前端
   ctx.body = success({

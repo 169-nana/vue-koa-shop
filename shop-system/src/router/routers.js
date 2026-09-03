@@ -23,17 +23,14 @@ const routers = [
         {
             path: '/category',
             name: 'category',
-            component: () => import('../pages/subpages/Category.vue'),
-            meta:{
-              title:'分类管理'
-            }
+            redirect: { name: 'goods' }
         },
         {
           path: '/goods',
           name: 'goods',
           component: () => import('../pages/subpages/Goods.vue'),
           meta:{
-            title:'商品管理'
+            title:'商品数据管理'
           }
         },
         {

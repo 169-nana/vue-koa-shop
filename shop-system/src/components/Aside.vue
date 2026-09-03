@@ -11,27 +11,18 @@
             <span>首页</span>
           </el-menu-item>
         </router-link>
-        <!-- 分类管理 -->
-        <router-link :to="{name:'category'}">
-          <el-menu-item index="2">
-            <el-icon>
-              <List />
-            </el-icon>
-            <span>分类管理</span>
-          </el-menu-item>
-        </router-link>
-        <!-- 商品管理 -->
+        <!-- 商品与分类统一管理 -->
         <router-link :to="{name:'goods'}">
-          <el-menu-item index="3">
+          <el-menu-item index="2">
               <el-icon>
                 <ShoppingCartFull />
               </el-icon>
-            <span>商品管理</span>
+            <span>商品数据</span>
           </el-menu-item>
         </router-link>
         <!-- 个人中心 -->
         <router-link :to="{name: 'setting'}">
-          <el-menu-item index="4">
+          <el-menu-item index="3">
             <el-icon>
               <Setting />
             </el-icon>
@@ -43,15 +34,15 @@
   </el-row>
 </template>
 <script setup>
-import {HomeFilled,Setting,List,ShoppingCartFull} from '@element-plus/icons-vue'
+import {HomeFilled,Setting,ShoppingCartFull} from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import router from '../router'
 // 菜单索引，根据路由名称获取对应的菜单索引
 const menuIndex = {
   'index':'1',
   'category':'2',
-  'goods':'3',
-  'setting':'4'
+  'goods':'2',
+  'setting':'3'
 }
 const active=computed(()=>menuIndex[router.currentRoute.value.name ])
 </script>
