@@ -28,11 +28,15 @@ onMounted(() => {
 })
 // 加载管理员信息
 const loadAdmin = async () => {
-  let data = await getAdmin()
-  updateAdmin({
-    username: data.username,
-    avatar: data.avatar
-  })
+  try {
+    const data = await getAdmin()
+    updateAdmin({
+      username: data.username,
+      avatar: data.avatar
+    })
+  } catch {
+    // 请求层已处理提示及登录失效
+  }
 }
 // 退出登录
 const onLogout = async () => {

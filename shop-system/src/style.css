@@ -12,3 +12,6 @@ body{
 a{
   text-decoration: none;
 }
+.tox-tinymce-aux {
+  z-index: 5000!important;
+}

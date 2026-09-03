@@ -27,10 +27,11 @@
 <script setup >
 import { ref,reactive} from 'vue'
 import { login } from '../api/'
-import { useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import useToken from '../stores/token'
 import notification from '../utils/notification'
 const token = useToken()
+const router = useRouter()
 const form = reactive({
   username: '',
   password: ''
@@ -53,17 +54,16 @@ const submitForm = (formRef) => {
   // 调用表单验证等方法：formRef.validate()
   formRef.validate(async valid => {
     if (valid) {
-      const data = await login(form)
-      if(data){
+      try {
+        const data = await login(form)
         //登录成功
         token.updateToken(data.token)
-        notification.success('登录成功')
+        notification({ message: '登录成功', type: 'success' })
         // 登录成功后，跳转到首页
-        router.push({ name: 'index' })
-      }
-      else{
-        //表单有误
-        notification.error({message: '登录失败',type:'error'})
+        const redirect = router.currentRoute.value.query.redirect
+        router.replace(typeof redirect === 'string' ? redirect : { name: 'index' })
+      } catch {
+        // 请求层已统一展示错误信息
       }
     }
   })

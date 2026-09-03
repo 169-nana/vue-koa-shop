@@ -13,18 +13,21 @@
         ref="uploadRef"
         class="upload-demo"
         :limit="1"
+        accept=".jpg,.jpeg,.webp,.png,.gif"
         :action="uploadURL"
         :headers="headers"
         :data="uploadData"
         :auto-upload="false"
+        :before-upload="beforeAvatarUpload"
         :on-success="uploadSuccess"
+        :on-error="uploadError"
         >
         <!--触发器插槽 -->
           <template #trigger>
-            <p><el-button>选择头像</el-button></p>
+            <p><el-button :disabled="uploading">选择头像</el-button></p>
           </template>
           <div>
-            <el-button type="success" @click="submitUpload">上传头像</el-button>
+            <el-button type="success" :disabled="uploading" @click="submitUpload">上传头像</el-button>
           </div>
           <template #tip>
             <div class="el-upload_tip"><p>限制上传1个文件，旧文件会被替代</p></div>
@@ -62,6 +65,8 @@ import useToken  from '../../stores/token'
 import useAdmin from '../../stores/admin'
 import notification from '../../utils/notification'
 import router from '../../router'
+import { toAssetURL } from '../../config'
+import { handleUploadUnauthorized, validateImage } from '../../utils/upload'
 //token校验
 const { admin,removeAdmin,updateAdmin } = useAdmin()
 const { token,removeToken } = useToken()
@@ -77,32 +82,49 @@ const form = reactive({
 //头像功能
 const avatarURL = ref(admin.avatar || defaultAvatarURL)
 const uploadRef = ref()
+const uploading = ref(false)
 const rulesFormRef = ref()
 //上传头像
 const submitUpload = () => {
+  if (!uploadRef.value.uploadFiles.length) {
+    notification({ message: '请先选择头像', type: 'warning' })
+    return
+  }
+  uploading.value = true
   uploadRef.value.submit()
 }
+const beforeAvatarUpload = file => validateImage(file)
+//上传失败(网络错误、HTTP 非 2xx 等)
+const uploadError = () => {
+  uploading.value = false
+  notification({
+    message: '头像上传失败，请稍后重试',
+    type: 'error'
+  })
+  uploadRef.value.clearFiles()
+}
 const uploadSuccess = async response => {
-  const { errno, errmsg, data } = response
+  uploading.value = false
+  if (handleUploadUnauthorized(response)) {
+    uploadRef.value.clearFiles()
+    return
+  }
+  const { errno, errmsg, data } = response || {}
   if (errno !== 0) {
     notification({
-      message: errmsg,
+      message: errmsg || '头像上传失败',
       type: 'error'
     })
   } else {
-    if (errmsg !== '') {
-      notification({
-        message: errmsg,
-      type: 'success'
-    })
-  }
-  await changeAdminAvatar({
-    avatar: data.savepath
-  })
-  updateAdmin({
-    avatar: data.url
-  })
-  avatarURL.value = data.url
+    //修改头像接口失败时返回 false(拦截器已提示错误),此时不再更新本地头像
+    try {
+      await changeAdminAvatar({ avatar: data.savepath })
+      const avatar = data.url || toAssetURL(data.savepath)
+      updateAdmin({ avatar })
+      avatarURL.value = avatar
+    } catch {
+      // 请求层已展示错误，本地头像保持不变
+    }
   }
   uploadRef.value.clearFiles()
 }
@@ -110,16 +132,19 @@ const uploadSuccess = async response => {
 const submitForm = (formEl) => {
   formEl.validate(async valid => {
     if (valid) {
-      await changeAdminPassword({ password: form.password })
-      resetForm()
-      //退出登录
-      removeToken()
-      removeAdmin()
-      router.push({ name: 'login' })
-      notification({
-        message: '密码修改成功,请重新登录',
-        type: 'success'
-      })
+      try {
+        await changeAdminPassword({ password: form.password })
+        resetForm()
+        removeToken()
+        removeAdmin()
+        router.replace({ name: 'login' })
+        notification({
+          message: '密码修改成功,请重新登录',
+          type: 'success'
+        })
+      } catch {
+        // 修改失败时保留登录状态与表单内容
+      }
     } else {
       notification({
         message: '表单填写有误',

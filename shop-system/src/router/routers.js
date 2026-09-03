@@ -8,7 +8,8 @@ const routers = [
       // 用于存储路由相关的元数据，如标题、权限等
       // 可以在路由守卫中使用
       meta:{
-        title:'首页'
+        title:'首页',
+        requiresAuth: true
       },
       children: [
         {

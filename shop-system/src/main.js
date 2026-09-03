@@ -9,4 +9,4 @@ import './router/permission'
 import piniaPluginPersist from 'pinia-plugin-persist'
 const pinia = createPinia()
 pinia.use(piniaPluginPersist)
-createApp(App).use(router).use(ElementPlus).use(pinia).mount('#app')
+createApp(App).use(pinia).use(router).use(ElementPlus).mount('#app')

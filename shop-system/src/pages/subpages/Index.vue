@@ -89,10 +89,15 @@
 <script setup>
 // ========== 依赖引入 ==========
 import { reactive, onMounted, onUnmounted } from 'vue'
-import * as echarts from 'echarts';
+import { use, init } from 'echarts/core'
+import { LineChart, BarChart } from 'echarts/charts'
+import { TitleComponent, TooltipComponent, GridComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
 import { Memo } from '@element-plus/icons-vue'
 import { getAdmin } from '../../api';
 import useAdmin from '../../stores/admin';
+
+use([LineChart, BarChart, TitleComponent, TooltipComponent, GridComponent, CanvasRenderer])
 
 // 状态与数据
 const { admin, updateAdmin } = useAdmin();
@@ -123,7 +128,7 @@ const loadAdmin = async () => {
 const initCharts1 = () => {
   const el = document.getElementById('saleVolume');
   if (!el) return;
-  chart1 = echarts.init(el);
+  chart1 = init(el);
   chart1.setOption({
     color: ['#1493fa'],
     title: {
@@ -167,7 +172,7 @@ const initCharts1 = () => {
 const initCharts2 = () => {
   const el = document.getElementById('orderQuantity');
   if (!el) return;
-  chart2 = echarts.init(el);
+  chart2 = init(el);
   chart2.setOption({
     color: ['#1493fa'],
     title: {
