@@ -17,7 +17,7 @@
               <el-icon>
                 <ShoppingCartFull />
               </el-icon>
-            <span>商品数据</span>
+            <span>商品管理</span>
           </el-menu-item>
         </router-link>
         <!-- 个人中心 -->

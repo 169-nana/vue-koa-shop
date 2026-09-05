@@ -6,6 +6,7 @@ const adminRouter = require('./admin.js')
 const categoryRouter = require('./category')
 const uploadRouter = require('./upload')
 const goodsRouter = require('./goods')
+const homeUserRouter = require('./homeUser')
 
 const router = new Router()
 
@@ -25,4 +26,7 @@ router.use(uploadRouter.allowedMethods())
 router.use(goodsRouter.routes())
 router.use(goodsRouter.allowedMethods())
 
+//挂载前端用户注册模块路由
+router.use(homeUserRouter.routes())
+router.use(homeUserRouter.allowedMethods())
 module.exports = router

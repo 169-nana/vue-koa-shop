@@ -9,8 +9,7 @@ const router = new Router({
   prefix: '/admin/category'
 })
 
-//auth中间件会验证token，categoryController是操作分类数据的控制器
-// 分类管理接口必须先登录，auth中间件会验证token，验证通过后才会执行categoryController.list
+// auth 中间件验证 Token，通过后才执行分类控制器
 router.get('/list', auth, categoryController.list)
 
 // 匹配 GET /admin/category/?id=1,参数查询  

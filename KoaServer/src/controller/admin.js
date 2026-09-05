@@ -10,7 +10,7 @@ const bcrypt = require('bcryptjs')
 const config = require('../config/index.js')
 const adminService = require('../service/admin')
 
-//POST /admin/login 登录处理
+//POST /admin/login 登录处理  发送token给客户端，客户端存储在localStorage中，后续请求携带token
 exports.login = async (ctx) => {
   const { username, password } = ctx.request.body || {}
 
@@ -33,8 +33,9 @@ exports.login = async (ctx) => {
 
   //jsonwebtoken​ 库生成一个JWT jwt.sign(payload, secret, options)
   const token = jwt.sign({
-    //3. JWT中只保存定位用户所需的数据
-     id: admin.id,         // payload（载荷）后面再修改为真实的管理员id
+    // JWT中只保存定位管理员所需的数据
+    id: admin.id,
+    type: 'admin'
   },
   config.jwtSecret,     // secret（密钥）
   {
