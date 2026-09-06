@@ -24,8 +24,9 @@
     </el-card>
   </el-card>
 </template>
-<script setup >
-import { ref,reactive} from 'vue'
+<script setup lang="ts">
+import type { FormInstance, FormRules } from 'element-plus'
+import { ref, reactive } from 'vue'
 import { login } from '../api/'
 import { useRouter } from 'vue-router'
 import useToken from '../stores/token'
@@ -36,8 +37,8 @@ const form = reactive({
   username: '',
   password: ''
 })
-const ruleFormRef = ref(null)
-const rules = reactive({
+const ruleFormRef = ref<FormInstance>()
+const rules = reactive<FormRules>({
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 3, max: 10, message: '用户名长度必须在3到10个字符之间', trigger: 'blur' }
@@ -47,7 +48,8 @@ const rules = reactive({
     { min: 6, max: 12, message: '密码长度必须在6到12个字符之间', trigger: 'blur' }
   ]
 })
-const submitForm = (formRef) => {
+const submitForm = (formRef: FormInstance | undefined) => {
+  if (!formRef) return
   // 模板中传入的 ruleFormRef 已被 Vue 自动解包，
   // formRef 就是 el-form 组件实例本身
   // console.log(formRef)

@@ -1,0 +1,15 @@
+{
+  "name": "vue-shop-project",
+  "private": true,
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "setup": "npm ci --prefix my-shop && npm ci --prefix shop-system && npm ci --prefix KoaServer",
+    "dev:shop": "npm run dev --prefix my-shop",
+    "dev:admin": "npm run dev --prefix shop-system",
+    "dev:api": "npm run dev --prefix KoaServer",
+    "typecheck": "npm run typecheck --prefix my-shop && npm run typecheck --prefix shop-system && npm run typecheck --prefix KoaServer",
+    "build": "npm run build --prefix my-shop && npm run build --prefix shop-system && npm run build --prefix KoaServer",
+    "test": "npm test --prefix KoaServer",
+    "check": "npm run typecheck && npm test"
+  }
+}

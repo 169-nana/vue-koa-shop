@@ -88,7 +88,12 @@
  </el-form-item>
  </el-form>
 </template>
-<script setup>
+<script setup lang="ts">
+import { genFileId, type FormInstance, type FormRules, type UploadInstance, type UploadProps, type UploadRawFile, type UploadFile, type UploadUserFile } from 'element-plus'
+import type { Category, CategoryNode, ApiResponse, UploadResult, GoodsInput } from '../../../shared/api'
+import { getAlbumPaths } from '../../../shared/upload'
+type ImageFile = UploadUserFile & { serverPath?: string }
+
 import { reactive, ref, onMounted } from 'vue'
 import { getCategoryList, uploadPictureURL, getGoods, addGoods, editGoods } from '../api'
 import useToken from '../stores/token'
@@ -114,36 +119,33 @@ let initEditor = {
   toolbar: 'bold underline italic strikethrough image undo redo',
   plugins: 'image'
 }
-const props = defineProps({
-  id: {
-    type: Number
-  }
-})
-const emit = defineEmits(['success'])
-const form = reactive({
+const props = withDefaults(defineProps<{ id?: number }>(), { id: 0 })
+const emit = defineEmits<{ (event: 'success'): void }>()
+type GoodsForm = Omit<GoodsInput, 'price' | 'stock' | 'category_id'> & { id: number; price: number | undefined; stock: number | undefined; category_id: number | undefined }
+const form = reactive<GoodsForm>({
   id: props.id,
   name: '',
-  category_id: '',
-  price: '',
+  category_id: undefined,
+  price: undefined,
   picture: '',
   album: [],
-  stock: '',
+  stock: undefined,
   spec: '',
   description: ''
 })
-const formRef = ref()
-const categoryList = ref([])
-const fileList = ref([])
-const uploadRef = ref()
+const formRef = ref<FormInstance>()
+const categoryList = ref<CategoryNode[]>([])
+const fileList = ref<ImageFile[]>([])
+const uploadRef = ref<UploadInstance>()
 const uploadURL = uploadPictureURL()
 const { token } = useToken()
 const headers = { jwt: token }
-const albumUploadRef = ref()
+const albumUploadRef = ref<UploadInstance>()
 const albumDialogImageUrl = ref('')
 const albumDialogVisible = ref(false)
-const albumFileList = ref([])
+const albumFileList = ref<ImageFile[]>([])
 const submitting = ref(false)
-const rules = {
+const rules: FormRules = {
   name: [{ required: true, message: '请填写商品名称', trigger: 'blur' }],
   category_id: [{ required: true, message: '请选择商品分类', trigger: 'change' }],
   price: [{ required: true, message: '请填写商品价格', trigger: 'change' }],
@@ -153,7 +155,7 @@ const rules = {
 onMounted(() => {
   loadGoods()
 })
-const resetForm = id => {
+const resetForm = (id: number) => {
   form.id = id
   btnCancel()
 }
@@ -161,7 +163,7 @@ defineExpose({ resetForm })
 
 // 后端可能返回相对路径，也兼容旧接口返回的完整 URL。
 // 表单中始终保存相对路径，只有图片预览时才拼接资源域名。
-const toServerPath = path => {
+const toServerPath = (path: string) => {
   return (path || '').replace(/^https?:\/\/[^/]+\//i, '')
 }
 
@@ -202,9 +204,9 @@ const loadGoods = async () => {
     categoryList.value = []
   }
 }
-const convertToTree = data => {
-  const treeData = []
-  const map = {}
+const convertToTree = (data: Category[]): CategoryNode[] => {
+  const treeData: CategoryNode[] = []
+  const map: Record<number, CategoryNode> = {}
   for (const item of data) {
     map[item.id] = { ...item, children: [] }
   }
@@ -219,19 +221,17 @@ const convertToTree = data => {
   }
   return treeData
 }
+// 校验成功后显式缩小空值类型，构建接口所需的数据。
+const getInput = (): GoodsInput | null => {
+  const { price, stock, category_id } = form
+  if (price === undefined || stock === undefined || category_id === undefined) return null
+  return { name: form.name, price, stock, category_id, picture: form.picture, album: [...form.album], spec: form.spec, description: form.description }
+}
 // 新增商品
 const addSubmit = async () => {
-  if (!await formRef.value.validate().catch(() => false)) return
-  const data = {
-    name: form.name,
-    category_id: form.category_id,
-    price: form.price,
-    picture: form.picture,
-    album: form.album,
-    stock: form.stock,
-    spec: form.spec,
-    description: form.description
-  }
+  if (!await formRef.value?.validate().catch(() => false)) return
+  const data = getInput()
+  if (!data) return
   submitting.value = true
   try {
     await addGoods(data)
@@ -244,10 +244,12 @@ const addSubmit = async () => {
 }
 // 修改商品
 const editSubmit = async () => {
-  if (!await formRef.value.validate().catch(() => false)) return
+  if (!await formRef.value?.validate().catch(() => false)) return
   submitting.value = true
   try {
-    await editGoods(form)
+    const data = getInput()
+    if (!data) return
+    await editGoods({ ...data, id: form.id })
     emit('success')
   } catch {
     // 请求层已展示错误
@@ -257,26 +259,28 @@ const editSubmit = async () => {
 }
 // 重置表单
 const btnCancel = () => {
-  formRef.value.resetFields()
+  formRef.value?.resetFields()
   form.picture = ''
-  uploadRef.value.clearFiles()
+  uploadRef.value?.clearFiles()
   form.album = []
-  albumUploadRef.value.clearFiles()
+  albumUploadRef.value?.clearFiles()
   loadGoods()
 }
 // 文件超出个数限制时替换已有图片
-const handleExceed = files => {
-  uploadRef.value.clearFiles()
-  uploadRef.value.handleStart(files[0])
-  uploadRef.value.submit()
+const handleExceed: UploadProps['onExceed'] = files => {
+  uploadRef.value?.clearFiles()
+  const file = files[0] as UploadRawFile
+  file.uid = genFileId()
+  uploadRef.value?.handleStart(file)
+  uploadRef.value?.submit()
 }
-const beforeImageUpload = file => validateImage(file)
+const beforeImageUpload = (file: File) => validateImage(file)
 const uploadError = () => notification({ message: '图片上传失败', type: 'error' })
 // 上传成功（仅失败时通知，成功通过图片预览给出视觉反馈，避免打扰）
-const uploadSuccess = (response, uploadFile) => {
+const uploadSuccess = (response: ApiResponse<UploadResult>, uploadFile: UploadFile) => {
   if (handleUploadUnauthorized(response)) return
   const { errno, errmsg, data } = response
-  if (errno !== 0) {
+  if (errno !== 0 || !data) {
     notification({
       message: errmsg,
       type: 'error'
@@ -293,10 +297,10 @@ const uploadSuccess = (response, uploadFile) => {
   }
 }
 // 相册图上传成功（仅失败时通知）
-const albumUploadSuccess = (response, uploadFile) => {
+const albumUploadSuccess = (response: ApiResponse<UploadResult>, uploadFile: UploadFile) => {
   if (handleUploadUnauthorized(response)) return
   const { errno, errmsg, data } = response
-  if (errno !== 0) {
+  if (errno !== 0 || !data) {
     notification({
       message: errmsg,
       type: 'error'
@@ -314,15 +318,12 @@ const albumUploadSuccess = (response, uploadFile) => {
   }
 }
 // 删除相册图
-const albumHandleRemove = (removeFile, uploadFiles) => {
-  form.album = []
-  uploadFiles.forEach(item => {
-    form.album.push(item.serverPath || item.response?.data?.savepath || item.url)
-  })
+const albumHandleRemove: UploadProps['onRemove'] = (_removeFile, remainingFiles) => {
+  form.album = getAlbumPaths(remainingFiles)
 }
 // 预览已上传的相册图
-const handlePictureCardPreview = uploadFile => {
-  albumDialogImageUrl.value = uploadFile.url
+const handlePictureCardPreview = (uploadFile: UploadFile) => {
+  albumDialogImageUrl.value = uploadFile.url || ''
   albumDialogVisible.value = true
 }
 </script>

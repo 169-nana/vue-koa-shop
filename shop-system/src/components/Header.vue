@@ -14,7 +14,7 @@
     </el-sub-menu>
    </el-menu>
 </template>
-<script setup>
+<script setup lang="ts">
 import router from '../router/index'
 import useAdmin from '../stores/admin'
 import useToken from '../stores/token'

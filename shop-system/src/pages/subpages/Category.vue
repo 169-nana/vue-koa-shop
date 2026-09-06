@@ -30,17 +30,18 @@
  </el-table>
 </div>
 </template>
-<script setup>
+<script setup lang="ts">
+import type { Category, CategoryNode } from '../../../../shared/api'
 import { getCategoryList, delCategory } from '../../api'
 import { ref, onMounted } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { toAssetURL } from '../../config'
 //引入模态框组件
 import CategoryEdit from '../../components/CategoryEdit.vue'
-const tableData = ref([])
+const tableData = ref<CategoryNode[]>([])
 const dialogVisible = ref(false)
 const id = ref(0)
-const categoryForm = ref()
+const categoryForm = ref<InstanceType<typeof CategoryEdit>>()
 //在组件挂载完成后查询分类列表数据
 onMounted(() => {
   loadCategoryList()
@@ -56,10 +57,10 @@ const loadCategoryList = async () => {
 }
 
 //将扁平的一维数组转换为树形结构的方法
-const convertToTree = data => {
-  const treeData = []
+const convertToTree = (data: Category[]): CategoryNode[] => {
+  const treeData: CategoryNode[] = []
   //创建一个节点映射表，用于存储每个节点的引用
-  const map = {}
+  const map: Record<number, CategoryNode> = {}
   //遍历一维数组数据，建立映射
   for (const item of data) {
     map[item.id] = { ...item, children: [] }
@@ -95,7 +96,7 @@ const addRow = () => {
 }
 
 //修改分类
-const editRow = row => {
+const editRow = (row: CategoryNode) => {
   id.value = row.id
   dialogVisible.value = true
   if (categoryForm.value) {
@@ -103,7 +104,7 @@ const editRow = row => {
   }
 }
 //删除分类
-const delRow = row => {
+const delRow = (row: CategoryNode) => {
   if (row.pid == 0 && row.children.length != 0) {
     ElMessage({
       type: 'warning',

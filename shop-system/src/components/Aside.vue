@@ -33,18 +33,18 @@
     </el-col>
   </el-row>
 </template>
-<script setup>
-import {HomeFilled,Setting,ShoppingCartFull} from '@element-plus/icons-vue'
+<script setup lang="ts">
+import { HomeFilled, Setting, ShoppingCartFull } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import router from '../router'
 // 菜单索引，根据路由名称获取对应的菜单索引
-const menuIndex = {
+const menuIndex: Record<string, string> = {
   'index':'1',
   'category':'2',
   'goods':'2',
   'setting':'3'
 }
-const active=computed(()=>menuIndex[router.currentRoute.value.name ])
+const active=computed(()=>menuIndex[String(router.currentRoute.value.name)] || '1')
 </script>
 <style scoped lang="scss">
 .el-menu {

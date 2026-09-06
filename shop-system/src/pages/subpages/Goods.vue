@@ -23,17 +23,17 @@
       </el-scrollbar>
     </aside>
 
-    <section class="goods-panel">
+    <section class="goods-panel" @submit.prevent="searchGoods" @keyup.enter="searchGoods">
       <div class="page-heading">
         <div><h2>商品数据管理</h2><p>按分类组织商品，并通过多条件快速定位数据</p></div>
         <el-button type="primary" @click="openGoods(0)">新增商品</el-button>
       </div>
 
-      <el-form class="query-form" :model="query" label-position="top" @submit.prevent="searchGoods">
+      <el-form class="query-form" :model="query" label-position="top">
         <el-row :gutter="12">
           <el-col :xs="24" :sm="12" :lg="8">
             <el-form-item label="关键词">
-              <el-input v-model="query.keyword" clearable placeholder="商品名称、规格或商品编号" @keyup.enter="searchGoods" />
+              <el-input v-model="query.keyword" clearable placeholder="商品名称、规格或商品编号" />
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12" :lg="8">
@@ -91,7 +91,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import type { Category, CategoryNode, GoodsListItem, GoodsQuery } from '../../../../shared/api'
+import type { ElTree } from 'element-plus'
+
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
@@ -100,16 +103,16 @@ import CategoryEdit from '../../components/CategoryEdit.vue'
 import { delCategory, delGoods, getCategoryList, getGoodsList } from '../../api'
 import { toAssetURL } from '../../config'
 
-const goodsList = ref([]), categoryList = ref([]), loading = ref(false)
+const goodsList = ref<GoodsListItem[]>([]), categoryList = ref<Category[]>([]), loading = ref(false)
 const page = ref(1), pagesize = 10, total = ref(0)
-const selectedCategoryId = ref(null), categoryKeyword = ref(''), categoryTreeRef = ref()
+const selectedCategoryId = ref<number | null>(null), categoryKeyword = ref(''), categoryTreeRef = ref<InstanceType<typeof ElTree>>()
 const goodsDialogVisible = ref(false), categoryDialogVisible = ref(false)
 const goodsId = ref(0), categoryId = ref(0)
-const query = reactive({ keyword: '', min_price: null, max_price: null, min_stock: null, max_stock: null })
+const query = reactive<{ keyword: string; min_price: number | undefined; max_price: number | undefined; min_stock: number | undefined; max_stock: number | undefined }>({ keyword: '', min_price: undefined, max_price: undefined, min_stock: undefined, max_stock: undefined })
 
 const categoryTree = computed(() => {
-  const map = new Map(categoryList.value.map(item => [item.id, { ...item, children: [] }]))
-  const roots = []
+  const map = new Map<number, CategoryNode>(categoryList.value.map(item => [item.id, { ...item, children: [] }]))
+  const roots: CategoryNode[] = []
   map.forEach(item => {
     const parent = map.get(item.pid)
     if (item.pid && parent) parent.children.push(item)
@@ -127,35 +130,34 @@ async function loadCategories() {
 async function loadGoodsList() {
   loading.value = true
   try {
-    const params = { page: page.value, pagesize, ...query }
+    const params: GoodsQuery = { page: page.value, pagesize, ...query }
     if (selectedCategoryId.value) params.category_id = selectedCategoryId.value
-    Object.keys(params).forEach(key => (params[key] === '' || params[key] === null) && delete params[key])
     const data = await getGoodsList(params)
     goodsList.value = data.list
     total.value = data.total
     if (!data.list.length && data.total > 0 && page.value > 1) { page.value--; await loadGoodsList() }
   } catch { goodsList.value = []; total.value = 0 } finally { loading.value = false }
 }
-const filterCategory = (value, data) => !value || data.name.toLowerCase().includes(value.toLowerCase())
-const selectCategory = data => { selectedCategoryId.value = data.id; page.value = 1; loadGoodsList() }
-const clearCategory = () => { selectedCategoryId.value = null; categoryTreeRef.value?.setCurrentKey(null); page.value = 1; loadGoodsList() }
+const filterCategory = (value: string, data: Record<string, unknown>) => !value || (typeof data.name === 'string' && data.name.toLowerCase().includes(value.toLowerCase()))
+const selectCategory = (data: Category) => { selectedCategoryId.value = data.id; page.value = 1; loadGoodsList() }
+const clearCategory = () => { selectedCategoryId.value = null; categoryTreeRef.value?.setCurrentKey(undefined); page.value = 1; loadGoodsList() }
 const searchGoods = () => { page.value = 1; loadGoodsList() }
-const resetQuery = () => { Object.assign(query, { keyword: '', min_price: null, max_price: null, min_stock: null, max_stock: null }); clearCategory() }
-const openGoods = id => { goodsId.value = id; goodsDialogVisible.value = true }
+const resetQuery = () => { Object.assign(query, { keyword: '', min_price: undefined, max_price: undefined, min_stock: undefined, max_stock: undefined }); clearCategory() }
+const openGoods = (id: number) => { goodsId.value = id; goodsDialogVisible.value = true }
 const goodsEditSuccess = () => { goodsDialogVisible.value = false; loadGoodsList() }
-async function removeGoods(row) {
+async function removeGoods(row: GoodsListItem) {
   try { await ElMessageBox.confirm(`确定删除商品“${row.name}”吗？`, '删除确认', { type: 'warning' }); await delGoods({ id: row.id }); await loadGoodsList() }
-  catch (error) { if (!['cancel', 'close'].includes(error)) return }
+  catch (error) { if (error !== 'cancel' && error !== 'close') return }
 }
-const openCategory = id => { categoryId.value = id; categoryDialogVisible.value = true }
+const openCategory = (id: number) => { categoryId.value = id; categoryDialogVisible.value = true }
 const categoryEditSuccess = async () => { categoryDialogVisible.value = false; await loadCategories(); await loadGoodsList() }
-async function removeCategory(row) {
+async function removeCategory(row: Category) {
   try {
     await ElMessageBox.confirm(`确定删除分类“${row.name}”吗？`, '删除确认', { type: 'warning' })
     await delCategory({ id: row.id })
     if (selectedCategoryId.value === row.id) selectedCategoryId.value = null
     await loadCategories(); await loadGoodsList()
-  } catch (error) { if (!['cancel', 'close'].includes(error)) return }
+  } catch (error) { if (error !== 'cancel' && error !== 'close') return }
 }
 </script>
 

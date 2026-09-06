@@ -2,14 +2,19 @@
   "name": "KoaServer",
   "version": "1.0.0",
   "description": "A server",
-  "main": "index.js",
+  "main": "dist/KoaServer/app.js",
   "author": "liuhanqing",
   "license": "MIT",
   "private": true,
   "scripts": {
-    "start": "node app.js",
-    "dev": "node --watch app.js",
-    "check": "node --check app.js"
+    "start": "node dist/KoaServer/app.js",
+    "prestart": "npm run build",
+    "dev": "tsx watch app.ts",
+    "check": "npm run typecheck",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
+    "build": "tsc -p tsconfig.json",
+    "reset-admin-password": "tsx scripts/reset-admin-password.ts",
+    "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@koa/cors": "^5.0.0",
@@ -23,5 +28,16 @@
     "koa-static": "^5.0.0",
     "multer": "^2.3.0",
     "mysql2": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/koa": "^3.0.3",
+    "@types/koa__cors": "^5.0.1",
+    "@types/koa__multer": "^2.0.8",
+    "@types/koa-bodyparser": "^4.3.13",
+    "@types/koa-static": "^4.0.4",
+    "@types/node": "^22.20.1",
+    "tsx": "^4.23.13",
+    "typescript": "~5.9.3"
   }
 }

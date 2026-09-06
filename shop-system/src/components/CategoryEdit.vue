@@ -6,7 +6,7 @@
  </el-form-item>
  <!-- 是否为二级分类 -->
  <el-form-item label="二级分类">
-   <el-radio-group v-model="showMore">
+   <el-radio-group :model-value="showMore" @update:model-value="value => showMore = value === true">
      <el-radio :label="true" :disabled="form.id !== 0 && !form.pid">是</el-radio>
      <el-radio :label="false" :disabled="form.id !== 0 && !form.pid">否</el-radio>
    </el-radio-group>
@@ -49,34 +49,34 @@
  </el-form-item>
  </el-form>
 </template>
-<script setup>
+<script setup lang="ts">
+import { genFileId, type FormInstance, type FormRules, type UploadInstance, type UploadProps, type UploadRawFile, type UploadUserFile } from 'element-plus'
+import type { Category, ApiResponse, UploadResult } from '../../../shared/api'
+type ImageFile = UploadUserFile & { serverPath?: string }
+
 import { ref, reactive, onMounted } from 'vue'
 import { getCategory, getCategoryList, uploadPictureURL, addCategory, editCategory } from '../api'
 import useToken from '../stores/token'
 import notification from '../utils/notification'
 import { handleUploadUnauthorized, validateImage } from '../utils/upload'
 
-const emit = defineEmits(['success'])
+const emit = defineEmits<{ (event: 'success'): void }>()
 
-const props = defineProps({
- id: {
-   type: Number
- },
-})
+const props = withDefaults(defineProps<{ id?: number }>(), { id: 0 })
 const form = reactive({
  id: props.id,
  name: '',
  pid: 0,
  picture: ''
 })
-const formRef = ref()
-const categoryList = ref([])
+const formRef = ref<FormInstance>()
+const categoryList = ref<Category[]>([])
 const showMore = ref(false)
-const fileList = ref([])
-const uploadRef = ref()
+const fileList = ref<ImageFile[]>([])
+const uploadRef = ref<UploadInstance>()
 const { token } = useToken()
 const submitting = ref(false)
-const rules = {
+const rules: FormRules = {
  name: [
    { required: true, message: '请填写分类名称', trigger: 'blur' },
    { min: 1, max: 30, message: '分类名称不能超过30个字符', trigger: 'blur' }
@@ -107,14 +107,14 @@ const loadCategory = async () => {
   }
 }
 // 重置表单供父组件调用
-const resetForm = id => {
+const resetForm = (id: number) => {
   form.id = id
   btnCancel()
 }
 defineExpose({ resetForm })
 // 新增分类操作
 const addSubmit = async () => {
-  if (!await formRef.value.validate().catch(() => false)) return
+  if (!await formRef.value?.validate().catch(() => false)) return
   const data = {
     name: form.name,
     picture: form.picture,
@@ -132,7 +132,7 @@ const addSubmit = async () => {
 }
 // 修改操作
 const editSubmit = async () => {
-  if (!await formRef.value.validate().catch(() => false)) return
+  if (!await formRef.value?.validate().catch(() => false)) return
   submitting.value = true
   try {
     await editCategory({ ...form, pid: showMore.value ? form.pid : 0 })
@@ -145,27 +145,29 @@ const editSubmit = async () => {
 }
 // 重置表单
 const btnCancel = () => {
- formRef.value.resetFields()
+ formRef.value?.resetFields()
  form.name = ''
  form.pid = 0
  form.picture = ''
  showMore.value = false
- uploadRef.value.clearFiles()
+ uploadRef.value?.clearFiles()
  loadCategory()
 }
 // 文件超出个数限制时替换已有图片
-const handleExceed = files => {
- uploadRef.value.clearFiles()
- uploadRef.value.handleStart(files[0])
- uploadRef.value.submit()
+const handleExceed: UploadProps['onExceed'] = files => {
+ uploadRef.value?.clearFiles()
+ const file = files[0] as UploadRawFile
+  file.uid = genFileId()
+  uploadRef.value?.handleStart(file)
+ uploadRef.value?.submit()
 }
-const beforeImageUpload = file => validateImage(file)
+const beforeImageUpload = (file: File) => validateImage(file)
 const uploadError = () => notification({ message: '图片上传失败', type: 'error' })
 // 上传成功（仅失败时通知，成功通过图片预览给出视觉反馈，避免打扰）
-const uploadSuccess = response => {
+const uploadSuccess = (response: ApiResponse<UploadResult>) => {
  if (handleUploadUnauthorized(response)) return
  const { errno, errmsg, data } = response
- if (errno !== 0) {
+ if (errno !== 0 || !data) {
    notification({
      message: errmsg,
      type: 'error'

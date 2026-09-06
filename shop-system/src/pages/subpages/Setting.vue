@@ -11,6 +11,7 @@
         </div>
         <el-upload
         ref="uploadRef"
+        v-model:file-list="avatarFiles"
         class="upload-demo"
         :limit="1"
         accept=".jpg,.jpeg,.webp,.png,.gif"
@@ -57,10 +58,13 @@
   </el-col>
 </el-row>
 </template>
-<script setup>
+<script setup lang="ts">
+import type { FormInstance, FormRules, FormItemRule, UploadInstance, UploadUserFile } from 'element-plus'
+import type { ApiResponse, UploadResult } from '../../../../shared/api'
+
 import { ref, reactive } from 'vue'
 import defaultAvatarURL from '/images/avatar-default.png'
-import { uploadPictureURL,changeAdminPassword,changeAdminAvatar } from '../../api'
+import { uploadPictureURL, changeAdminPassword, changeAdminAvatar } from '../../api'
 import useToken  from '../../stores/token'
 import useAdmin from '../../stores/admin'
 import notification from '../../utils/notification'
@@ -81,19 +85,20 @@ const form = reactive({
 })
 //头像功能
 const avatarURL = ref(admin.avatar || defaultAvatarURL)
-const uploadRef = ref()
+const uploadRef = ref<UploadInstance>()
+const avatarFiles = ref<UploadUserFile[]>([])
 const uploading = ref(false)
-const rulesFormRef = ref()
+const rulesFormRef = ref<FormInstance>()
 //上传头像
 const submitUpload = () => {
-  if (!uploadRef.value.uploadFiles.length) {
+  if (!avatarFiles.value.length) {
     notification({ message: '请先选择头像', type: 'warning' })
     return
   }
   uploading.value = true
-  uploadRef.value.submit()
+  uploadRef.value?.submit()
 }
-const beforeAvatarUpload = file => validateImage(file)
+const beforeAvatarUpload = (file: File) => validateImage(file)
 //上传失败(网络错误、HTTP 非 2xx 等)
 const uploadError = () => {
   uploading.value = false
@@ -101,16 +106,16 @@ const uploadError = () => {
     message: '头像上传失败，请稍后重试',
     type: 'error'
   })
-  uploadRef.value.clearFiles()
+  uploadRef.value?.clearFiles()
 }
-const uploadSuccess = async response => {
+const uploadSuccess = async (response: ApiResponse<UploadResult>) => {
   uploading.value = false
   if (handleUploadUnauthorized(response)) {
-    uploadRef.value.clearFiles()
+    uploadRef.value?.clearFiles()
     return
   }
   const { errno, errmsg, data } = response || {}
-  if (errno !== 0) {
+  if (errno !== 0 || !data) {
     notification({
       message: errmsg || '头像上传失败',
       type: 'error'
@@ -126,10 +131,11 @@ const uploadSuccess = async response => {
       // 请求层已展示错误，本地头像保持不变
     }
   }
-  uploadRef.value.clearFiles()
+  uploadRef.value?.clearFiles()
 }
 //修改密码
-const submitForm = (formEl) => {
+const submitForm = (formEl: FormInstance | undefined) => {
+  if (!formEl) return
   formEl.validate(async valid => {
     if (valid) {
       try {
@@ -155,17 +161,17 @@ const submitForm = (formEl) => {
 }
 //重置表单
 const resetForm = () => {
-  rulesFormRef.value.resetFields()
+  rulesFormRef.value?.resetFields()
 }
 //校验密码是否一致
-const validatePass = (rule, value, callback) => {
+const validatePass: NonNullable<FormItemRule['validator']> = (rule, value, callback) => {
   if (value !== form.password) {
     callback(new Error('两次输入密码不一致'))
   } else {
     callback()
   }
 }
-const rules = reactive({
+const rules = reactive<FormRules>({
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, max: 12, message: '密码长度必须在6到12个字符之间', trigger: 'blur' }

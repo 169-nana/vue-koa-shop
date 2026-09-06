@@ -86,7 +86,8 @@
     </el-col>
    </el-row>
 </template>
-<script setup>
+<script setup lang="ts">
+import type { EChartsType } from 'echarts/core'
 // ========== 依赖引入 ==========
 import { reactive, onMounted, onUnmounted } from 'vue'
 import { use, init } from 'echarts/core'
@@ -102,8 +103,8 @@ use([LineChart, BarChart, TitleComponent, TooltipComponent, GridComponent, Canva
 // 状态与数据
 const { admin, updateAdmin } = useAdmin();
 // 图表实例引用，用于 resize
-let chart1 = null;
-let chart2 = null;
+let chart1: EChartsType | null = null;
+let chart2: EChartsType | null = null;
 // 还没有设置后端接口，这里模拟数据
 const logInfo = reactive({
   loginTime: '2026-08-01 10:00:00',
@@ -165,7 +166,7 @@ const initCharts1 = () => {
       }
     }]
   });
-  setTimeout(() => chart1.resize(), 0);
+  setTimeout(() => chart1?.resize(), 0);
 }
 
 //图表2：月度订单量
@@ -213,7 +214,7 @@ const initCharts2 = () => {
       }
     }]
   });
-  setTimeout(() => chart2.resize(), 0);
+  setTimeout(() => chart2?.resize(), 0);
 }
 
 // 窗口缩放时同步调整两个图表
