@@ -82,10 +82,10 @@
         layout="total, prev, pager, next" :total="total" :page-size="pagesize" @current-change="loadGoodsList" />
     </section>
 
-    <el-dialog v-model="goodsDialogVisible" :title="goodsId ? '修改商品' : '新增商品'" width="760px" destroy-on-close>
+    <el-dialog v-model="goodsDialogVisible" :title="goodsId ? '修改商品' : '新增商品'" width="min(760px, calc(100vw - 32px))" destroy-on-close>
       <GoodsEdit :id="goodsId" @success="goodsEditSuccess" />
     </el-dialog>
-    <el-dialog v-model="categoryDialogVisible" :title="categoryId ? '修改分类' : '新增分类'" width="560px" destroy-on-close>
+    <el-dialog v-model="categoryDialogVisible" :title="categoryId ? '修改分类' : '新增分类'" width="min(560px, calc(100vw - 32px))" destroy-on-close>
       <CategoryEdit :id="categoryId" @success="categoryEditSuccess" />
     </el-dialog>
   </div>
@@ -96,6 +96,7 @@ import type { Category, CategoryNode, GoodsListItem, GoodsQuery } from '../../..
 import type { ElTree } from 'element-plus'
 
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import GoodsEdit from '../../components/GoodsEdit.vue'
@@ -108,6 +109,7 @@ const page = ref(1), pagesize = 10, total = ref(0)
 const selectedCategoryId = ref<number | null>(null), categoryKeyword = ref(''), categoryTreeRef = ref<InstanceType<typeof ElTree>>()
 const goodsDialogVisible = ref(false), categoryDialogVisible = ref(false)
 const goodsId = ref(0), categoryId = ref(0)
+const route = useRoute(), router = useRouter()
 const query = reactive<{ keyword: string; min_price: number | undefined; max_price: number | undefined; min_stock: number | undefined; max_stock: number | undefined }>({ keyword: '', min_price: undefined, max_price: undefined, min_stock: undefined, max_stock: undefined })
 
 const categoryTree = computed(() => {
@@ -122,7 +124,30 @@ const categoryTree = computed(() => {
 })
 const selectedCategoryName = computed(() => categoryList.value.find(item => item.id === selectedCategoryId.value)?.name || '')
 watch(categoryKeyword, value => categoryTreeRef.value?.filter(value))
-onMounted(async () => { await loadCategories(); await loadGoodsList() })
+onMounted(async () => { applyStockQuery(); applyDashboardQuery(); await loadCategories(); await loadGoodsList() })
+watch(() => route.query.stock, () => { applyStockQuery(); page.value = 1; loadGoodsList() })
+watch(() => [route.query.action, route.query.edit], applyDashboardQuery)
+
+function applyStockQuery() {
+  const stock = route.query.stock
+  query.min_stock = stock === 'low' ? 1 : undefined
+  query.max_stock = stock === 'low' || stock === 'attention' ? 10 : stock === 'empty' ? 0 : undefined
+}
+
+function applyDashboardQuery() {
+  if (route.query.action === 'create') openGoods(0)
+  if (route.query.action === 'category') openCategory(0)
+  const edit = typeof route.query.edit === 'string' ? Number(route.query.edit) : 0
+  if (Number.isSafeInteger(edit) && edit > 0) openGoods(edit)
+}
+
+// 关闭弹窗后清理一次性入口，避免刷新页面再次弹出。
+watch([goodsDialogVisible, categoryDialogVisible], ([goodsVisible, categoryVisible]) => {
+  if (!goodsVisible && !categoryVisible && (route.query.action || route.query.edit)) {
+    const { action, edit, ...remaining } = route.query
+    void router.replace({ query: remaining })
+  }
+})
 
 async function loadCategories() {
   try { categoryList.value = await getCategoryList() } catch { categoryList.value = [] }

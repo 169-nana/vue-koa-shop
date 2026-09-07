@@ -1,7 +1,7 @@
 <template>
   <el-row>
     <el-col :span="24">
-      <el-menu active-text-color="#white" class="el-menu-vertical-demo" :default-active="active" text-color="#333">
+      <el-menu active-text-color="#2563b8" class="el-menu-vertical-demo" :default-active="active" text-color="#58687f">
         <!-- 首页 -->
         <router-link :to="{name:'index'}">
           <el-menu-item index="1">
@@ -22,7 +22,7 @@
         </router-link>
         <!-- 个人中心 -->
         <router-link :to="{name: 'setting'}">
-          <el-menu-item index="3">
+        <el-menu-item index="3">
             <el-icon>
               <Setting />
             </el-icon>
@@ -48,14 +48,23 @@ const active=computed(()=>menuIndex[String(router.currentRoute.value.name)] || '
 </script>
 <style scoped lang="scss">
 .el-menu {
+  padding: 16px 10px;
   height: 100%;
   border:0 !important;
   .is-active{
-    background: linear-gradient(90deg, #409EFF, #9ec8ff);
+    background: #edf4ff;
+    font-weight: 600;
   }
   a{
-    color:white;
+    color:inherit;
     text-decoration: none;
   }
+}
+.el-menu-item { border-radius: 8px; margin-bottom: 8px; }
+a:focus-visible { display: block; outline: 2px solid #3675df; border-radius: 8px; }
+@media (max-width: 760px) {
+  .el-menu-item { padding: 0 !important; justify-content: center; }
+  .el-menu-item span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .el-menu-item .el-icon { margin-right: 0; }
 }
 </style>

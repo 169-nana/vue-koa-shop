@@ -1,11 +1,11 @@
 <template>
-  <div></div>
    <el-menu class="el-menu-demo" mode="horizontal" :ellipsis="false">
-    <div class="navbar">"微商城"后台管理系统</div>
+    <router-link :to="{ name: 'index' }" class="navbar">微商城<span>管理后台</span></router-link>
     <!-- 管理员信息 -->
     <el-sub-menu class="menu" index="1">
       <template #title>
-        <el-avatar class="avatar" :src="admin.avatar">{{ admin.username }}</el-avatar>
+        <el-avatar class="avatar" :size="32" :src="admin.avatar">{{ admin.username.slice(0, 1) }}</el-avatar>
+        <span class="admin-name">{{ admin.username || '管理员' }}</span>
       </template>
       <router-link :to="{name:'setting'}">
         <el-menu-item index="5">个人中心</el-menu-item>
@@ -48,13 +48,20 @@ const onLogout = async () => {
 </script>
 <style scoped lang="scss">
 .el-menu-demo{
-  background: linear-gradient(90deg,#409EFF,#9ec8ff);
+  background: #fff;
+  border-bottom: 0;
+  height: 59px;
+  align-items: center;
 }
 .navbar{
   font-size: 20px;
   font-weight: bold;
-  color: rgb(255, 255, 255);
+  color: #24334b;
+  white-space: nowrap;
 }
+.navbar span { font-size: 12px; font-weight: 400; color: #69788c; margin-left: 14px; padding-left: 14px; border-left: 1px solid #dce3ec; }
+.admin-name { font-size: 13px; margin-left: 10px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 480px) { .navbar span, .admin-name { display: none; } }
 .menu{
   font-size: 20px;
   margin-left: auto;
