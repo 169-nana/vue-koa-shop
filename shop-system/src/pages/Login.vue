@@ -10,7 +10,7 @@
         <p id="admin-feedback" class="feedback" role="status" aria-live="polite">{{ errorMessage }}</p>
         <button class="login-button" type="submit" :disabled="loading">{{ loading ? '正在登录…' : '登录后台' }}<span v-if="!loading" aria-hidden="true">→</span></button>
       </form>
-      <p class="account-note">请使用管理员账号登录</p>
+      <p class="account-note">管理员与审核人员使用各自后台账号登录</p>
     </section>
     <footer class="auth-footer">微商城 · 后台管理系统</footer>
   </main>

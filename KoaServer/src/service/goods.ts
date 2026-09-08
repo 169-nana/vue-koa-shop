@@ -139,6 +139,15 @@ export const findById = async (id: number): Promise<Goods | null> => {
   }
 }
 
+// 前台详情只能读取已上架商品，避免通过猜测 ID 绕过列表过滤。
+export const findPublicById = async (id: number): Promise<Goods | null> => {
+  const [rows] = await db.execute<GoodsRow[]>(`
+    SELECT id, category_id, name, price, picture, stock, spec, description
+    FROM vueshop_goods WHERE id = ? AND sale_status = 'on_sale' LIMIT 1
+  `, [id])
+  return rows[0] ? { ...rows[0], price: Number(rows[0].price) } : null
+}
+
 // 查询商品相册
 export const findAlbumByGoodsId = async (goodsId: number): Promise<AlbumImage[]> => {
   const sql = `
@@ -161,7 +170,7 @@ export const findPublicPage = async ({
   pagesize,
   categoryId
 }: PublicGoodsFilters): Promise<Goods[]> => {
-  const clauses: string[] = []
+  const clauses: string[] = ["g.sale_status = 'on_sale'"]
   const values: number[] = []
 
   /*

@@ -1,6 +1,7 @@
 import type { RowDataPacket } from 'mysql2/promise'
 import type {
   PublicUser,
+  PublicAdmin,
   Category,
   Goods,
   GoodsListItem,
@@ -115,7 +116,7 @@ export type UserRow = RowDataPacket & PublicUser & { status: number }
 
 export type UserPasswordRow = UserRow & { password: string }
 
-export type AdminRow = RowDataPacket & PublicUser
+export type AdminRow = RowDataPacket & PublicAdmin
 
 export type AdminPasswordRow = AdminRow & { password: string }
 

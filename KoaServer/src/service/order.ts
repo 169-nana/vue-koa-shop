@@ -109,7 +109,7 @@ export const create = async (
             ? AS quantity,
             g.stock
           FROM vueshop_goods AS g
-          WHERE g.id = ?
+          WHERE g.id = ? AND g.sale_status = 'on_sale'
           LIMIT 1
           FOR UPDATE
         `,
@@ -135,6 +135,7 @@ export const create = async (
             ON g.id = c.goods_id
           WHERE c.user_id = ?
             AND c.id IN (${placeholders})
+            AND g.sale_status = 'on_sale'
           ORDER BY c.id ASC
           FOR UPDATE
         `,

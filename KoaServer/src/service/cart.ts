@@ -84,7 +84,7 @@ export const add = async (
             ON c.goods_id = g.id
             AND c.user_id = ?
             AND c.selected_spec = ?
-          WHERE g.id = ?
+          WHERE g.id = ? AND g.sale_status = 'on_sale'
           LIMIT 1
           FOR UPDATE
         `,

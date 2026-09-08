@@ -80,6 +80,30 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/merchant-service',
+    name: 'merchant-service',
+    component: () => import('../pages/MerchantService.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/merchant/apply',
+    name: 'merchant-apply',
+    component: () => import('../pages/MerchantApply.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/merchant',
+    name: 'merchant-center',
+    component: () => import('../pages/MerchantCenter.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/notifications',
+    name: 'notifications',
+    component: () => import('../pages/Notifications.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }

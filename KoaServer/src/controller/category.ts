@@ -73,6 +73,11 @@ export const add: AppMiddleware<InsertResult> = async ctx => {
     return
   }
 
+  if (pid !== 0 && picture) {
+    ctx.body = fail('二级分类不能设置分类图片')
+    return
+  }
+
   // pid不为0时，必须指向一个存在的一级分类
   if (pid !== 0) {
     const parent = await categoryService.findRootById(pid)
@@ -132,6 +137,11 @@ export const save: AppMiddleware<Category> = async ctx => {
 
   if (!Number.isInteger(pid) || pid < 0) {
     ctx.body = fail('上级分类ID不正确')
+    return
+  }
+
+  if (pid !== 0 && picture) {
+    ctx.body = fail('二级分类不能设置分类图片')
     return
   }
 

@@ -14,6 +14,9 @@ import orderRouter from './order'
 import addressRouter from './address'
 import refundRouter from './refund'
 import reviewRouter from './review'
+import merchantRouter from './merchant'
+import notificationRouter from './notification'
+import moderationRouter from './moderation'
 
 const router = new Router<AppState>()
 
@@ -57,5 +60,11 @@ router.use(refundRouter.routes())
 router.use(refundRouter.allowedMethods())
 router.use(reviewRouter.routes())
 router.use(reviewRouter.allowedMethods())
+router.use(merchantRouter.routes())
+router.use(merchantRouter.allowedMethods())
+router.use(notificationRouter.routes())
+router.use(notificationRouter.allowedMethods())
+router.use(moderationRouter.routes())
+router.use(moderationRouter.allowedMethods())
 
 export default router

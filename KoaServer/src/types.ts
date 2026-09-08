@@ -1,10 +1,11 @@
 //存放后端内部类型
 
 import type { DefaultContext, Middleware, ParameterizedContext } from 'koa'
-import type { ApiResponse, PublicUser } from '../../shared/api'
-export interface AuthIdentity { id: number; type: 'admin' | 'user' }
+import type { AdminRole, ApiResponse, MerchantStatus, PublicUser } from '../../shared/api'
+export interface AuthIdentity { id: number; type: 'admin' | 'user'; role?: AdminRole }
 export interface UserState extends PublicUser { status: number }
-export interface AppState { admin?: AuthIdentity; user?: UserState }
+export interface MerchantState { id: number; user_id: number; shop_name: string; status: MerchantStatus }
+export interface AppState { admin?: AuthIdentity; user?: UserState; merchant?: MerchantState }
 export type AppContext = ParameterizedContext<AppState>
 export type AppMiddleware<T = unknown> = Middleware<AppState, DefaultContext, ApiResponse<T>>
 export interface GoodsFilters {

@@ -12,7 +12,7 @@
           </el-menu-item>
         </router-link>
         <!-- 商品与分类统一管理 -->
-        <router-link :to="{name:'goods'}">
+        <router-link v-if="admin.role === 'admin'" :to="{name:'goods'}">
           <el-menu-item index="2">
               <el-icon>
                 <ShoppingCartFull />
@@ -20,9 +20,12 @@
             <span>商品管理</span>
           </el-menu-item>
         </router-link>
+        <router-link :to="{name:'merchant-review'}"><el-menu-item index="3"><el-icon><Checked /></el-icon><span>商家审核</span></el-menu-item></router-link>
+        <router-link :to="{name:'goods-review'}"><el-menu-item index="4"><el-icon><DocumentChecked /></el-icon><span>商品审核</span></el-menu-item></router-link>
+        <router-link v-if="admin.role === 'admin'" :to="{name:'accounts'}"><el-menu-item index="5"><el-icon><UserFilled /></el-icon><span>账号管理</span></el-menu-item></router-link>
         <!-- 个人中心 -->
         <router-link :to="{name: 'setting'}">
-        <el-menu-item index="3">
+          <el-menu-item index="6">
             <el-icon>
               <Setting />
             </el-icon>
@@ -34,15 +37,20 @@
   </el-row>
 </template>
 <script setup lang="ts">
-import { HomeFilled, Setting, ShoppingCartFull } from '@element-plus/icons-vue'
+import { Checked, DocumentChecked, HomeFilled, Setting, ShoppingCartFull, UserFilled } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import router from '../router'
+import useAdmin from '../stores/admin'
+const { admin } = useAdmin()
 // 菜单索引，根据路由名称获取对应的菜单索引
 const menuIndex: Record<string, string> = {
   'index':'1',
   'category':'2',
   'goods':'2',
-  'setting':'3'
+  'merchant-review':'3',
+  'goods-review':'4',
+  'accounts':'5',
+  'setting':'6'
 }
 const active=computed(()=>menuIndex[String(router.currentRoute.value.name)] || '1')
 </script>

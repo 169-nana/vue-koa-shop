@@ -118,7 +118,7 @@ export const goodsDetail:
     }
 
     const goods =
-      await goodsService.findById(id)
+      await goodsService.findPublicById(id)
 
     if (!goods) {
       ctx.body = fail('商品不存在')
@@ -145,7 +145,7 @@ export const goodsAlbum:
     }
 
     const goods =
-      await goodsService.findById(goodsId)
+      await goodsService.findPublicById(goodsId)
 
     if (!goods) {
       ctx.body = fail('商品不存在')

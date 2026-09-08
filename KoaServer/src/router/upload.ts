@@ -14,7 +14,6 @@ router.post(
 
   // 必须先鉴权，避免未登录用户写入文件
   auth,
-
   // 解析并保存multipart文件
   uploadPicture,
 

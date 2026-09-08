@@ -84,6 +84,16 @@ test('商品金额、库存及分类 ID 保持运行时校验', async () => {
   assert.equal((await request('/admin/category/', undefined, adminToken)).errmsg, '分类ID不正确')
 })
 
+test('二级分类不能通过接口提交图片', async () => {
+  const result = await request('/admin/category/add', {
+    name: '测试二级分类',
+    pid: 1,
+    picture: 'uploads/test.png'
+  }, adminToken)
+  assert.equal(result.errno, 1)
+  assert.equal(result.errmsg, '二级分类不能设置分类图片')
+})
+
 test('登录注册拒绝非法输入，不将外部数据当作已校验的 TS 类型', async () => {
   assert.equal((await request('/admin/login', { username: {}, password: [] })).errno, 1)
   assert.equal((await request('/home/login', {})).errno, 1)

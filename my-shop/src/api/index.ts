@@ -28,7 +28,18 @@ import type {
   UpdateCartInput,
   UploadResult,
   UserAddress,
-  UserDashboard
+  UserDashboard,
+  GoodsSubmission,
+  GoodsSubmissionInput,
+  MerchantApplicationInput,
+  MerchantApplicationState,
+  MerchantGoodsItem,
+  NotificationItem,
+  NotificationQuery,
+  PageResult,
+  SaleStatusUpdateInput,
+  StockUpdateInput,
+  UnreadCount
 } from '../../../shared/api'
 
 // 用户注册
@@ -164,3 +175,32 @@ export const getGoodsReviews = (goodsId: number) =>
   request.get<GoodsReview[]>('/home/review/goods', {
     params: { goods_id: goodsId }
   })
+
+export const getMerchantApplication = () => request.get<MerchantApplicationState>('/home/merchant/application')
+export const submitMerchantApplication = (data: MerchantApplicationInput) =>
+  request.post<InsertResult>('/home/merchant/application/submit', data)
+const uploadMerchantImage = (url: string, type: string, file: File) => {
+  const data = new FormData()
+  data.append('type', type)
+  data.append('file', file)
+  return request.post<UploadResult>(url, data)
+}
+export const uploadMerchantQualification = (file: File) =>
+  uploadMerchantImage('/home/merchant/qualification/upload', 'merchant_qualification', file)
+export const uploadMerchantGoodsImage = (file: File, type: 'goods_picture' | 'goods_album') =>
+  uploadMerchantImage('/home/merchant/upload/picture', type, file)
+export const getMerchantSubmissions = () => request.get<GoodsSubmission[]>('/home/merchant/goods/submissions')
+export const saveMerchantSubmission = (data: GoodsSubmissionInput) =>
+  request.post<InsertResult>('/home/merchant/goods/submission/save', data)
+export const submitMerchantGoods = (id: number) =>
+  request.post<null>('/home/merchant/goods/submission/submit', { id })
+export const getMerchantGoods = () => request.get<MerchantGoodsItem[]>('/home/merchant/goods/list')
+export const updateMerchantStock = (data: StockUpdateInput) =>
+  request.post<StockUpdateInput>('/home/merchant/goods/stock', data)
+export const updateMerchantSaleStatus = (data: SaleStatusUpdateInput) =>
+  request.post<SaleStatusUpdateInput>('/home/merchant/goods/sale-status', data)
+export const getNotifications = (params: NotificationQuery = {}) =>
+  request.get<PageResult<NotificationItem>>('/home/notifications', { params })
+export const getUnreadNotificationCount = () => request.get<UnreadCount>('/home/notifications/unread-count')
+export const readNotification = (id: number) => request.post<null>('/home/notifications/read', { id })
+export const readAllNotifications = () => request.post<null>('/home/notifications/read-all', {})

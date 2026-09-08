@@ -31,8 +31,21 @@ const routers: RouteRecordRaw[] = [
           name: 'goods',
           component: () => import('../pages/subpages/Goods.vue'),
           meta:{
-            title:'商品数据管理'
+            title:'商品数据管理',
+            adminOnly: true
           }
+        },
+        {
+          path: '/merchant-review',
+          name: 'merchant-review',
+          component: () => import('../pages/subpages/MerchantReview.vue'),
+          meta: { title: '商家入驻审核' }
+        },
+        {
+          path: '/goods-review',
+          name: 'goods-review',
+          component: () => import('../pages/subpages/GoodsReview.vue'),
+          meta: { title: '商品审核' }
         },
         {
           path: '/setting',
@@ -41,6 +54,12 @@ const routers: RouteRecordRaw[] = [
           meta:{
             title:'个人中心'
           }
+        },
+        {
+          path: '/accounts',
+          name: 'accounts',
+          component: () => import('../pages/subpages/Accounts.vue'),
+          meta: { title: '后台账号管理', adminOnly: true }
         }
       ]
     },

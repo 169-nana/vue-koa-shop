@@ -2,9 +2,11 @@ import type { PublicAdmin } from '../../../shared/api'
 import { defineStore } from 'pinia'
 import { reactive } from 'vue'
 const useAdmin = defineStore('admin', () => {
-  const defaultAdmin = {
+  const defaultAdmin: Omit<PublicAdmin, 'id'> = {
     username: '',
-    avatar:''
+    avatar:'',
+    role: 'reviewer',
+    status: 1
   }
   // 管理员信息，包含用户名和头像
   const admin = reactive(Object.assign({}, defaultAdmin))

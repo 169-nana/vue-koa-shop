@@ -4,6 +4,7 @@ import type { AppState } from '../types'
 import Router from '@koa/router'
 
 import auth from '../middleware/auth'
+import { adminOnly } from '../middleware/adminPermission'
 import * as categoryController from '../controller/category'
 
 const router = new Router<AppState>({
@@ -17,11 +18,11 @@ router.get('/list', auth, categoryController.list)
 router.get('/', auth, categoryController.detail)
 
 // 匹配 POST /admin/category/add，新增请求
-router.post('/add', auth, categoryController.add)
+router.post('/add', auth, adminOnly, categoryController.add)
 
 //匹配 POST /admin/category/save，修改请求
-router.post('/save', auth, categoryController.save)
+router.post('/save', auth, adminOnly, categoryController.save)
 
 //匹配 POST /admin/category/del，删除请求
-router.post('/del', auth, categoryController.remove)
+router.post('/del', auth, adminOnly, categoryController.remove)
 export default router

@@ -6,11 +6,12 @@
  </el-form-item>
  <!-- 商品分类 -->
  <el-form-item label="分类名称" prop="category_id">
-   <el-select v-model="form.category_id" placeholder="请选择二级分类名称">
+   <el-select v-model="form.category_id" :disabled="categoryLocked" placeholder="请选择二级分类名称">
      <el-option-group v-for="category in categoryList" :key="category.id" :label="category.name">
        <el-option v-for="item in category.children" :key="item.id" :label="item.name" :value="item.id" />
      </el-option-group>
    </el-select>
+   <span v-if="categoryLocked" class="locked-category-tip">已使用商品管理中当前选中的具体分类</span>
  </el-form-item>
  <!-- 商品价格 -->
  <el-form-item label="商品价格" prop="price" style="width: 92%">
@@ -98,7 +99,7 @@ import type { Category, CategoryNode, ApiResponse, UploadResult, GoodsInput } fr
 import { getAlbumPaths } from '../../../shared/upload'
 type ImageFile = UploadUserFile & { serverPath?: string }
 
-import { reactive, ref, onMounted } from 'vue'
+import { computed, reactive, ref, onMounted } from 'vue'
 import { getCategoryList, uploadPictureURL, getGoods, addGoods, editGoods } from '../api'
 import useToken from '../stores/token'
 import notification from '../utils/notification'
@@ -123,13 +124,13 @@ const initEditor = {
   paste_data_images: false,
   invalid_elements: 'img,picture,source,svg,iframe,object,embed'
 }
-const props = withDefaults(defineProps<{ id?: number }>(), { id: 0 })
+const props = withDefaults(defineProps<{ id?: number; categoryId?: number }>(), { id: 0, categoryId: 0 })
 const emit = defineEmits<{ (event: 'success'): void }>()
 type GoodsForm = Omit<GoodsInput, 'price' | 'stock' | 'category_id'> & { id: number; price: number | undefined; stock: number | undefined; category_id: number | undefined }
 const form = reactive<GoodsForm>({
   id: props.id,
   name: '',
-  category_id: undefined,
+  category_id: props.categoryId > 0 ? props.categoryId : undefined,
   price: undefined,
   picture: '',
   album: [],
@@ -149,6 +150,7 @@ const albumDialogImageUrl = ref('')
 const albumDialogVisible = ref(false)
 const albumFileList = ref<ImageFile[]>([])
 const submitting = ref(false)
+const categoryLocked = computed(() => form.id === 0 && props.categoryId > 0)
 const rules: FormRules = {
   name: [{ required: true, message: '请填写商品名称', trigger: 'blur' }],
   category_id: [{ required: true, message: '请选择商品分类', trigger: 'change' }],
@@ -267,6 +269,7 @@ const btnCancel = () => {
   form.picture = ''
   uploadRef.value?.clearFiles()
   form.album = []
+  if (!form.id) form.category_id = props.categoryId > 0 ? props.categoryId : undefined
   albumUploadRef.value?.clearFiles()
   loadGoods()
 }
@@ -336,6 +339,7 @@ const handlePictureCardPreview = (uploadFile: UploadFile) => {
 }
 </script>
 <style scoped>
+.locked-category-tip { display: block; margin-top: 6px; color: #909399; font-size: 12px; }
 .upload-demo {
   text-align: left;
   width: 91%;

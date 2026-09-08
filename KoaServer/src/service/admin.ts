@@ -1,4 +1,4 @@
-import type { PublicAdmin } from '../../../shared/api'
+import type { AdminAccount, AdminRole, PublicAdmin } from '../../../shared/api'
 import type { ResultSetHeader } from 'mysql2/promise'
 import type { AdminRow, AdminPasswordRow } from '../db/types'
 //负责查询数据，组织业务数据
@@ -8,7 +8,7 @@ import db from '../db/index'
 export const findByUsername = async (username: string): Promise<(PublicAdmin & { password: string }) | null> => {
   //不能将用户传入的参数直接拼接到sql语句，利用？占位符防止SQL注入
   const sql = `
-    SELECT id, username, password, avatar
+    SELECT id, username, password, avatar, role, status
     FROM vueshop_admin
     WHERE username = ?
     LIMIT 1
@@ -24,7 +24,7 @@ export const findByUsername = async (username: string): Promise<(PublicAdmin & {
 // 根据ID查询管理员公开信息
 export const findById = async (id: number): Promise<PublicAdmin | null> => {
   const sql = `
-    SELECT id, username, avatar
+    SELECT id, username, avatar, role, status
     FROM vueshop_admin
     WHERE id = ?
     LIMIT 1
@@ -38,7 +38,7 @@ export const findById = async (id: number): Promise<PublicAdmin | null> => {
 // 修改管理员密码
 export const findPasswordById = async (id: number): Promise<AdminPasswordRow | null> => {
   const [rows] = await db.execute<AdminPasswordRow[]>(
-    'SELECT id, username, password, avatar FROM vueshop_admin WHERE id = ? LIMIT 1', [id]
+    'SELECT id, username, password, avatar, role, status FROM vueshop_admin WHERE id = ? LIMIT 1', [id]
   )
   return rows[0] || null
 }
@@ -80,4 +80,28 @@ export const updateAvatar = async (
   ])
 
   return result.affectedRows
+}
+
+export const listAccounts = async (): Promise<AdminAccount[]> => {
+  const [rows] = await db.execute<(AdminRow & { created_at?: Date | string })[]>(`
+    SELECT id, username, avatar, role, status, NULL AS created_at
+    FROM vueshop_admin ORDER BY id ASC
+  `)
+  return rows.map(row => ({ ...row, created_at: row.created_at ? String(row.created_at) : null }))
+}
+
+export const createAccount = async (username: string, passwordHash: string, role: AdminRole): Promise<number> => {
+  const [result] = await db.execute<ResultSetHeader>(`
+    INSERT INTO vueshop_admin (username, password, avatar, role, status)
+    VALUES (?, ?, '', ?, 1)
+  `, [username, passwordHash, role])
+  return result.insertId
+}
+
+export const updateAccount = async (id: number, role: AdminRole, status: 0 | 1): Promise<boolean> => {
+  const [result] = await db.execute<ResultSetHeader>(
+    'UPDATE vueshop_admin SET role = ?, status = ? WHERE id = ?',
+    [role, status, id]
+  )
+  return result.affectedRows > 0
 }

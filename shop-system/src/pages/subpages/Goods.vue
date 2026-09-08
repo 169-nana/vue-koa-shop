@@ -3,9 +3,10 @@
     <aside class="category-panel">
       <div class="panel-title">
         <div><strong>商品分类</strong><span>{{ categoryList.length }} 个分类</span></div>
-        <el-button type="primary" link @click="openCategory(0)">新增</el-button>
+        <el-button type="primary" link @click="openCategory(0)">新增一级分类</el-button>
       </div>
       <el-input v-model="categoryKeyword" clearable placeholder="搜索分类" :prefix-icon="Search" />
+      <button class="all-category" :class="{ active: selectedCategoryId === null }" type="button" @click="clearCategory"><span>全部分类</span><small>查看全部商品</small></button>
       <el-scrollbar class="category-scroll">
         <el-tree ref="categoryTreeRef" node-key="id" highlight-current default-expand-all
           :data="categoryTree" :props="{ label: 'name', children: 'children' }"
@@ -14,6 +15,7 @@
             <div class="category-node">
               <span class="category-name">{{ data.name }}</span>
               <span class="category-actions" @click.stop>
+                <el-button v-if="data.pid === 0" link type="primary" @click="openChildCategory(data.id)">新增下级</el-button>
                 <el-button link @click="openCategory(data.id)">编辑</el-button>
                 <el-button link type="danger" @click="removeCategory(data)">删除</el-button>
               </span>
@@ -26,7 +28,6 @@
     <section class="goods-panel" @submit.prevent="searchGoods" @keyup.enter="searchGoods">
       <div class="page-heading">
         <div><h2>商品数据管理</h2><p>按分类组织商品，并通过多条件快速定位数据</p></div>
-        <el-button type="primary" @click="openGoods(0)">新增商品</el-button>
       </div>
 
       <el-form class="query-form" :model="query" label-position="top">
@@ -59,7 +60,10 @@
         </div>
       </el-form>
 
-      <div class="result-summary">共找到 <strong>{{ total }}</strong> 件商品</div>
+      <div class="list-toolbar">
+        <div class="result-summary"><span>商品列表</span><small>当前共找到 <strong>{{ total }}</strong> 件商品</small></div>
+        <el-button type="primary" :icon="Plus" @click="openGoods(0)">新增商品</el-button>
+      </div>
       <el-table v-loading="loading" :data="goodsList" row-key="id" border stripe>
         <el-table-column prop="id" label="编号" width="80" />
         <el-table-column label="商品信息" min-width="250"><template #default="{ row }">
@@ -82,11 +86,11 @@
         layout="total, prev, pager, next" :total="total" :page-size="pagesize" @current-change="loadGoodsList" />
     </section>
 
-    <el-dialog v-model="goodsDialogVisible" :title="goodsId ? '修改商品' : '新增商品'" width="min(760px, calc(100vw - 32px))" destroy-on-close>
-      <GoodsEdit :id="goodsId" @success="goodsEditSuccess" />
+    <el-dialog v-model="goodsDialogVisible" :title="goodsId ? '修改商品' : selectedLeafCategoryId ? `新增商品 · ${selectedCategoryName}` : '新增商品'" width="min(760px, calc(100vw - 32px))" destroy-on-close>
+      <GoodsEdit :id="goodsId" :category-id="goodsId ? 0 : selectedLeafCategoryId" @success="goodsEditSuccess" />
     </el-dialog>
-    <el-dialog v-model="categoryDialogVisible" :title="categoryId ? '修改分类' : '新增分类'" width="min(560px, calc(100vw - 32px))" destroy-on-close>
-      <CategoryEdit :id="categoryId" @success="categoryEditSuccess" />
+    <el-dialog v-model="categoryDialogVisible" :title="categoryId ? '修改分类' : categoryParentId ? '新增二级分类' : '新增一级分类'" width="min(560px, calc(100vw - 32px))" destroy-on-close>
+      <CategoryEdit :id="categoryId" :parent-id="categoryParentId" @success="categoryEditSuccess" />
     </el-dialog>
   </div>
 </template>
@@ -97,7 +101,7 @@ import type { ElTree } from 'element-plus'
 
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Search } from '@element-plus/icons-vue'
+import { Plus, Search } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import GoodsEdit from '../../components/GoodsEdit.vue'
 import CategoryEdit from '../../components/CategoryEdit.vue'
@@ -108,7 +112,7 @@ const goodsList = ref<GoodsListItem[]>([]), categoryList = ref<Category[]>([]), 
 const page = ref(1), pagesize = 10, total = ref(0)
 const selectedCategoryId = ref<number | null>(null), categoryKeyword = ref(''), categoryTreeRef = ref<InstanceType<typeof ElTree>>()
 const goodsDialogVisible = ref(false), categoryDialogVisible = ref(false)
-const goodsId = ref(0), categoryId = ref(0)
+const goodsId = ref(0), categoryId = ref(0), categoryParentId = ref(0)
 const route = useRoute(), router = useRouter()
 const query = reactive<{ keyword: string; min_price: number | undefined; max_price: number | undefined; min_stock: number | undefined; max_stock: number | undefined }>({ keyword: '', min_price: undefined, max_price: undefined, min_stock: undefined, max_stock: undefined })
 
@@ -123,6 +127,10 @@ const categoryTree = computed(() => {
   return roots
 })
 const selectedCategoryName = computed(() => categoryList.value.find(item => item.id === selectedCategoryId.value)?.name || '')
+const selectedLeafCategoryId = computed(() => {
+  const selected = categoryList.value.find(item => item.id === selectedCategoryId.value)
+  return selected && selected.pid !== 0 ? selected.id : 0
+})
 watch(categoryKeyword, value => categoryTreeRef.value?.filter(value))
 onMounted(async () => { applyStockQuery(); applyDashboardQuery(); await loadCategories(); await loadGoodsList() })
 watch(() => route.query.stock, () => { applyStockQuery(); page.value = 1; loadGoodsList() })
@@ -174,7 +182,8 @@ async function removeGoods(row: GoodsListItem) {
   try { await ElMessageBox.confirm(`确定删除商品“${row.name}”吗？`, '删除确认', { type: 'warning' }); await delGoods({ id: row.id }); await loadGoodsList() }
   catch (error) { if (error !== 'cancel' && error !== 'close') return }
 }
-const openCategory = (id: number) => { categoryId.value = id; categoryDialogVisible.value = true }
+const openCategory = (id: number) => { categoryId.value = id; categoryParentId.value = 0; categoryDialogVisible.value = true }
+const openChildCategory = (parentId: number) => { categoryId.value = 0; categoryParentId.value = parentId; categoryDialogVisible.value = true }
 const categoryEditSuccess = async () => { categoryDialogVisible.value = false; await loadCategories(); await loadGoodsList() }
 async function removeCategory(row: Category) {
   try {
@@ -187,12 +196,13 @@ async function removeCategory(row: Category) {
 </script>
 
 <style scoped lang="scss">
-.goods-workbench { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 20px; min-height: calc(100vh - 150px); }
+.goods-workbench { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; min-height: calc(100vh - 150px); }
 .category-panel { border-right: 1px solid #ebeef5; padding-right: 20px; min-width: 0; }
-.panel-title, .page-heading, .query-actions { display: flex; align-items: center; justify-content: space-between; }
+.panel-title, .page-heading, .query-actions, .list-toolbar { display: flex; align-items: center; justify-content: space-between; }
 .panel-title { margin-bottom: 16px; }
 .panel-title strong { display: block; font-size: 16px; }
 .panel-title span { display: block; margin-top: 4px; color: #909399; font-size: 12px; }
+.all-category { display: flex; width: 100%; margin-top: 10px; padding: 10px 12px; align-items: center; justify-content: space-between; border: 1px solid #e4e7ed; border-radius: 6px; color: #606266; background: white; cursor: pointer; }.all-category small { color: #909399; }.all-category:hover, .all-category.active { border-color: #a8c8f0; color: #2563b8; background: #edf4ff; }
 .category-scroll { height: calc(100vh - 245px); margin-top: 12px; }
 .category-node { width: 100%; display: flex; align-items: center; justify-content: space-between; padding-right: 8px; }
 .category-name { overflow: hidden; text-overflow: ellipsis; }
@@ -208,7 +218,10 @@ async function removeCategory(row: Category) {
 .range-inputs { display: flex; align-items: center; gap: 8px; width: 100%; }
 .range-inputs .el-input-number { width: calc(50% - 12px); }
 .selected-category { color: #606266; font-size: 13px; }
-.result-summary { margin: 0 0 12px; color: #606266; font-size: 14px; }
+.list-toolbar { margin: 4px 0 14px; padding: 2px 0; }
+.result-summary { display: grid; gap: 4px; color: #303133; }
+.result-summary span { font-size: 16px; font-weight: 600; }
+.result-summary small { color: #909399; font-size: 12px; font-weight: 400; }
 .result-summary strong { color: #409eff; }
 .goods-info { display: flex; align-items: center; gap: 12px; }
 .goods-info strong, .goods-info small { display: block; }

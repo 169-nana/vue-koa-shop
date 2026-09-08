@@ -1,7 +1,7 @@
-import type { LoginResult, PublicAdmin } from '../../../shared/api'
+import type { AdminAccount, InsertResult, LoginResult, PublicAdmin, UpdateAdminAccountInput } from '../../../shared/api'
 import { requireAdmin } from '../utils/identity'
 import type { AppMiddleware } from '../types'
-import { getBody } from '../utils/input'
+import { getBody, hasErrorCode } from '../utils/input'
 //存放管理员模块路由的映射处理器函数
 
 //引入响应数据的工具函数
@@ -35,11 +35,17 @@ export const login: AppMiddleware<LoginResult> = async ctx => {
     return
   }
 
+  if (admin.status !== 1) {
+    ctx.body = fail('后台账号已被禁用')
+    return
+  }
+
   //jsonwebtoken​ 库生成一个JWT jwt.sign(payload, secret, options)
   const token = jwt.sign({
     // JWT中只保存定位管理员所需的数据
     id: admin.id,
-    type: 'admin'
+    type: 'admin',
+    role: admin.role
   },
   config.jwtSecret,     // secret（密钥）
   {
@@ -177,4 +183,35 @@ export const changeAvatar: AppMiddleware<{ avatar: string }> = async ctx => {
   ctx.body = success({
     avatar: avatarPath
   })
+}
+
+export const listAccounts: AppMiddleware<AdminAccount[]> = async ctx => {
+  ctx.body = success(await adminService.listAccounts())
+}
+
+export const createAccount: AppMiddleware<InsertResult> = async ctx => {
+  const body = getBody(ctx.request.body)
+  const username = typeof body.username === 'string' ? body.username.trim() : ''
+  const password = typeof body.password === 'string' ? body.password : ''
+  const role = body.role
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) { ctx.body = fail('用户名必须是3到20位字母、数字或下划线'); return }
+  if (password.length < 6 || password.length > 20) { ctx.body = fail('密码长度必须是6到20个字符'); return }
+  if (role !== 'admin' && role !== 'reviewer') { ctx.body = fail('后台角色不正确'); return }
+  try {
+    const insertId = await adminService.createAccount(username, await bcrypt.hash(password, 12), role)
+    ctx.body = success({ insertId })
+  } catch (error) {
+    if (hasErrorCode(error, 'ER_DUP_ENTRY')) { ctx.body = fail('后台用户名已经存在'); return }
+    throw error
+  }
+}
+
+export const updateAccount: AppMiddleware<UpdateAdminAccountInput> = async ctx => {
+  const body = getBody(ctx.request.body), id = Number(body.id), role = body.role, status = Number(body.status)
+  if (!Number.isInteger(id) || id <= 0 || (role !== 'admin' && role !== 'reviewer') || (status !== 0 && status !== 1)) {
+    ctx.body = fail('账号参数不正确'); return
+  }
+  if (id === requireAdmin(ctx).id) { ctx.body = fail('不能修改当前登录账号的角色或状态'); return }
+  if (!await adminService.updateAccount(id, role, status as 0 | 1)) { ctx.body = fail('后台账号不存在'); return }
+  ctx.body = success({ id, role, status: status as 0 | 1 })
 }

@@ -5,7 +5,7 @@
     <el-sub-menu class="menu" index="1">
       <template #title>
         <el-avatar class="avatar" :size="32" :src="avatarURL">{{ admin.username.slice(0, 1) || '管' }}</el-avatar>
-        <span class="admin-name">{{ admin.username || '管理员' }}</span>
+        <span class="admin-name">{{ admin.username || '后台用户' }} · {{ admin.role === 'admin' ? '管理员' : '审核人员' }}</span>
       </template>
       <router-link :to="{name:'setting'}">
         <el-menu-item index="5">个人中心</el-menu-item>
@@ -34,7 +34,9 @@ const loadAdmin = async () => {
     const data = await getAdmin()
     updateAdmin({
       username: data.username,
-      avatar: data.avatar
+      avatar: data.avatar,
+      role: data.role,
+      status: data.status
     })
   } catch {
     // 请求层已处理提示及登录失效

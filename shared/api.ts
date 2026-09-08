@@ -6,7 +6,11 @@ export interface Credentials { username: string; password: string }
 export interface ChangeAdminPasswordInput { currentPassword: string; password: string }
 export interface LoginResult { token: string }
 export interface PublicUser { id: number; username: string; avatar: string }
-export type PublicAdmin = PublicUser
+export type AdminRole = 'admin' | 'reviewer'
+export interface PublicAdmin extends PublicUser { role: AdminRole; status: 0 | 1 }
+export interface AdminAccount extends PublicAdmin { created_at: string | null }
+export interface CreateAdminAccountInput { username: string; password: string; role: AdminRole }
+export interface UpdateAdminAccountInput { id: number; role: AdminRole; status: 0 | 1 }
 export interface RegisterResult { id: number; username: string }
 export interface IdInput { id: number }
 export interface InsertResult { insertId: number }
@@ -199,3 +203,102 @@ export interface GoodsReview {
   content: string
   created_at: string
 }
+
+export type MerchantStatus = 'pending' | 'approved' | 'rejected' | 'suspended'
+export type GoodsSubmissionStatus = 'draft' | 'pending' | 'approved' | 'rejected'
+export type GoodsSubmissionAction = 'create' | 'update'
+export type GoodsSaleStatus = 'on_sale' | 'off_sale'
+export type ReviewDecision = 'approved' | 'rejected'
+export type ReviewScene = 'merchant_application' | 'goods_submission'
+
+export interface MerchantApplicationInput {
+  shop_name: string
+  contact_name: string
+  contact_phone: string
+  description: string
+  qualification_picture: string
+}
+
+export interface MerchantApplication extends MerchantApplicationInput {
+  id: number
+  user_id: number
+  username: string
+  status: MerchantStatus
+  rejection_reason: string
+  submitted_at: string
+  reviewed_at: string | null
+  reviewer_name: string | null
+}
+
+export interface MerchantApplicationState {
+  application: MerchantApplication | null
+}
+
+export interface RejectionReasonOption {
+  id: number
+  scene: ReviewScene
+  label: string
+}
+
+export interface ReviewInput {
+  id: number
+  decision: ReviewDecision
+  reason_ids: number[]
+  additional_note: string
+}
+
+export interface GoodsSubmissionInput extends GoodsInput {
+  id?: number
+  goods_id?: number
+}
+
+export interface GoodsSubmission extends GoodsInput {
+  id: number
+  goods_id: number | null
+  merchant_id: number
+  merchant_name: string
+  action: GoodsSubmissionAction
+  status: GoodsSubmissionStatus
+  rejection_reason: string
+  submitted_at: string | null
+  reviewed_at: string | null
+  reviewer_name: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface MerchantGoodsItem extends Goods {
+  merchant_id: number | null
+  sale_status: GoodsSaleStatus
+}
+
+export interface StockUpdateInput { id: number; stock: number }
+export interface SaleStatusUpdateInput { id: number; sale_status: GoodsSaleStatus }
+
+export type NotificationType =
+  | 'merchant_application_approved'
+  | 'merchant_application_rejected'
+  | 'merchant_suspended'
+  | 'merchant_restored'
+  | 'goods_approved'
+  | 'goods_rejected'
+  | 'goods_forced_off_sale'
+
+export interface NotificationItem {
+  id: number
+  type: NotificationType
+  title: string
+  content: string
+  business_type: ReviewScene | 'goods'
+  business_id: number
+  read_at: string | null
+  created_at: string
+}
+
+export interface NotificationQuery {
+  page?: number
+  pagesize?: number
+  unread_only?: boolean
+}
+
+export interface UnreadCount { count: number }

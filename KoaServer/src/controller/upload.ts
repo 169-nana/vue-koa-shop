@@ -11,6 +11,7 @@ const allowedTypes = new Set([
   'goods_picture',
   'goods_album',
   'goods_description'
+  ,'merchant_qualification'
 ])
 
 export const picture: AppMiddleware<UploadResult> = async ctx => {
@@ -28,6 +29,14 @@ export const picture: AppMiddleware<UploadResult> = async ctx => {
     await fs.unlink(file.path).catch(() => {})
 
     ctx.body = fail('图片用途不正确')
+    return
+  }
+
+
+  // 审核人员只能维护自己的头像，不能借上传接口写入商品或分类资源。
+  if (ctx.state.admin?.role === 'reviewer' && type !== 'admin_avatar') {
+    await fs.unlink(file.path).catch(() => {})
+    ctx.body = fail('审核人员没有上传该类图片的权限')
     return
   }
 
