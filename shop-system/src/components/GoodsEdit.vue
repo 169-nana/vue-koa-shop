@@ -18,23 +18,26 @@
  </el-form-item>
  <!-- 商品图片 -->
  <el-form-item label="商品图片" prop="picture">
-   <el-upload
-     ref="uploadRef"
-     v-model:file-list="fileList"
-     class="upload-demo"
-     :action="uploadURL"
+    <el-upload
+      ref="uploadRef"
+      v-model:file-list="fileList"
+      class="upload-demo main-picture-upload"
+      list-type="picture-card"
+      :action="uploadURL"
      :headers="headers"
      :data="{ type: 'goods_picture' }"
      :limit="1"
      accept="image/jpeg,image/png,image/webp,image/gif"
      :before-upload="beforeImageUpload"
-     :on-exceed="handleExceed"
-     :on-success="uploadSuccess"
+      :on-exceed="handleExceed"
+      :on-preview="handlePictureCardPreview"
+      :on-remove="pictureHandleRemove"
+      :on-success="uploadSuccess"
      :on-error="uploadError"
    >
-     <template #trigger>
-       <el-button type="primary" style="text-align: left;">选择图片</el-button>
-     </template>
+      <el-icon>
+        <Plus />
+      </el-icon>
      <template #tip>
        <div class="el-upload__tip">
          图片文件大小不超过 500KB
@@ -76,10 +79,11 @@
  <el-form-item label="商品规格" prop="spec" style="width: 92%">
  <el-input v-model="form.spec" placeholder="请填写商品规格" />
  </el-form-item>
- <!-- 商品简介 -->
-<el-form-item label="商品简介" prop="description" style="width: 92%" class="desc">
-  <Editor :init="initEditor" v-model="form.description"></Editor>
-</el-form-item>
+  <!-- 商品简介 -->
+ <el-form-item label="商品简介" prop="description" style="width: 92%" class="desc">
+   <Editor :init="initEditor" v-model="form.description"></Editor>
+   <div class="el-upload__tip">商品介绍仅支持文字排版，图片请使用主图或图片相册上传</div>
+ </el-form-item>
  <!-- 操作按钮 -->
  <el-form-item>
  <el-button type="primary" :loading="submitting" @click="editSubmit()" v-if="form.id">修改</el-button>
@@ -106,9 +110,8 @@ import 'tinymce/tinymce'
 import 'tinymce/models/dom'
 import 'tinymce/themes/silver'
 import 'tinymce/icons/default'
-import 'tinymce/plugins/image'
 // 编辑器配置
-let initEditor = {
+const initEditor = {
   width: '100%',
   skin_url: '/tinymce/skins/ui/oxide',
   content_css: '/tinymce/skins/content/default/content.css',
@@ -116,8 +119,9 @@ let initEditor = {
   language: 'zh-Hans',
   menubar: false,
   statusbar: false,
-  toolbar: 'bold underline italic strikethrough image undo redo',
-  plugins: 'image'
+  toolbar: 'bold underline italic strikethrough | undo redo',
+  paste_data_images: false,
+  invalid_elements: 'img,picture,source,svg,iframe,object,embed'
 }
 const props = withDefaults(defineProps<{ id?: number }>(), { id: 0 })
 const emit = defineEmits<{ (event: 'success'): void }>()
@@ -320,6 +324,10 @@ const albumUploadSuccess = (response: ApiResponse<UploadResult>, uploadFile: Upl
 // 删除相册图
 const albumHandleRemove: UploadProps['onRemove'] = (_removeFile, remainingFiles) => {
   form.album = getAlbumPaths(remainingFiles)
+}
+// 删除主图预览时同步清空提交字段，防止界面已删除但仍提交旧图片。
+const pictureHandleRemove: UploadProps['onRemove'] = () => {
+  form.picture = ''
 }
 // 预览已上传的相册图
 const handlePictureCardPreview = (uploadFile: UploadFile) => {

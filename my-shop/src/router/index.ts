@@ -11,6 +11,54 @@ const routes: RouteRecordRaw[] = [
       import('../pages/Home.vue')
   },
   {
+    path: '/goods/:id',
+    name: 'goods-detail',
+    component: () =>
+      import('../pages/GoodsDetail.vue')
+  },
+  {
+    path: '/cart',
+    name: 'cart',
+    component: () => import('../pages/Cart.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/checkout',
+    name: 'checkout',
+    component: () => import('../pages/Checkout.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/orders',
+    name: 'orders',
+    component: () => import('../pages/Orders.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/orders/:id',
+    name: 'order-detail',
+    component: () => import('../pages/OrderDetail.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/addresses',
+    name: 'addresses',
+    component: () => import('../pages/Addresses.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/after-sales',
+    name: 'after-sales',
+    component: () => import('../pages/AfterSales.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/reviews',
+    name: 'reviews',
+    component: () => import('../pages/Reviews.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/login',
     name: 'login',
     component: () =>

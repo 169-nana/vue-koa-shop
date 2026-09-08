@@ -4,6 +4,8 @@ import Router from '@koa/router'
 import userAuth from '../middleware/userAuth'
 
 import * as homeUserController from '../controller/homeUser'
+import * as uploadController from '../controller/upload'
+import uploadPicture from '../middleware/upload'
 
 const router = new Router<AppState>({
   prefix: '/home'
@@ -27,5 +29,9 @@ router.get(
   userAuth,
   homeUserController.getUser
 )
+
+router.get('/user/dashboard', userAuth, homeUserController.getDashboard)
+router.post('/user/avatar/upload', userAuth, uploadPicture, uploadController.picture)
+router.post('/user/avatar', userAuth, homeUserController.changeAvatar)
 
 export default router

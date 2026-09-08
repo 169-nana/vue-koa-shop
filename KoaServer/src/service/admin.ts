@@ -36,19 +36,28 @@ export const findById = async (id: number): Promise<PublicAdmin | null> => {
 }
 
 // 修改管理员密码
+export const findPasswordById = async (id: number): Promise<AdminPasswordRow | null> => {
+  const [rows] = await db.execute<AdminPasswordRow[]>(
+    'SELECT id, username, password, avatar FROM vueshop_admin WHERE id = ? LIMIT 1', [id]
+  )
+  return rows[0] || null
+}
+
 export const updatePassword = async (
   id: number,
-  passwordHash: string
+  passwordHash: string,
+  previousHash: string
 ) => {
   const sql = `
     UPDATE vueshop_admin
     SET password = ?
-    WHERE id = ?
+    WHERE id = ? AND password = ?
   `
 
   const [result] = await db.execute<ResultSetHeader>(sql, [
     passwordHash,
-    id
+    id,
+    previousHash
   ])
 
   return result.affectedRows

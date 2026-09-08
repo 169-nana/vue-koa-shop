@@ -4,7 +4,7 @@
     <!-- 管理员信息 -->
     <el-sub-menu class="menu" index="1">
       <template #title>
-        <el-avatar class="avatar" :size="32" :src="admin.avatar">{{ admin.username.slice(0, 1) }}</el-avatar>
+        <el-avatar class="avatar" :size="32" :src="avatarURL">{{ admin.username.slice(0, 1) || '管' }}</el-avatar>
         <span class="admin-name">{{ admin.username || '管理员' }}</span>
       </template>
       <router-link :to="{name:'setting'}">
@@ -19,10 +19,12 @@ import router from '../router/index'
 import useAdmin from '../stores/admin'
 import useToken from '../stores/token'
 import notification from '../utils/notification'
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { getAdmin } from '../api/index'
+import { toAssetURL } from '../config'
 const { removeToken } = useToken()
 const { admin, updateAdmin, removeAdmin } = useAdmin()
+const avatarURL = computed(() => toAssetURL(admin.avatar))
 onMounted(() => {
   loadAdmin()
 })

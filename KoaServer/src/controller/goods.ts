@@ -1,6 +1,6 @@
 import type { InsertResult, IdInput, PageResult, GoodsListItem, GoodsDetail } from '../../../shared/api'
 import type { AppMiddleware } from '../types'
-import { getBody } from '../utils/input'
+import { containsImageMarkup, getBody } from '../utils/input'
 import * as goodsService from '../service/goods'
 import { success, fail } from '../utils/response'
 import * as categoryService from '../service/category'
@@ -189,6 +189,11 @@ export const add: AppMiddleware<InsertResult> = async ctx => {
     return
   }
 
+  if (containsImageMarkup(description)) {
+    ctx.body = fail('商品介绍不能包含图片，请使用主图或图片相册上传')
+    return
+  }
+
   if (!album) {
     ctx.body = fail('商品相册格式不正确')
     return
@@ -327,6 +332,11 @@ export const save: AppMiddleware<IdInput> = async ctx => {
 
   if (spec.length > 255) {
     ctx.body = fail('商品规格过长')
+    return
+  }
+
+  if (containsImageMarkup(description)) {
+    ctx.body = fail('商品介绍不能包含图片，请使用主图或图片相册上传')
     return
   }
 

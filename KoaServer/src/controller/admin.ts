@@ -65,7 +65,12 @@ const admin = await adminService.findById(
 
 // POST /admin/admin/changePassword  修改管理员密码
 export const changePassword: AppMiddleware<null> = async ctx => {
-  const { password } = getBody(ctx.request.body)
+  const { currentPassword, password } = getBody(ctx.request.body)
+
+  if (typeof currentPassword !== 'string' || !currentPassword || currentPassword.length > 72) {
+    ctx.body = fail('请输入有效的当前密码')
+    return
+  }
 
   if (typeof password !== 'string') {
     ctx.body = fail('密码格式不正确')
@@ -88,6 +93,20 @@ export const changePassword: AppMiddleware<null> = async ctx => {
     return
   }
 
+  const admin = await adminService.findPasswordById(requireAdmin(ctx).id)
+  if (!admin) {
+    ctx.body = fail('管理员不存在或已被删除', 2)
+    return
+  }
+  if (!await bcrypt.compare(currentPassword, admin.password)) {
+    ctx.body = fail('当前密码不正确')
+    return
+  }
+  if (password === currentPassword) {
+    ctx.body = fail('新密码不能与当前密码相同')
+    return
+  }
+
   const passwordHash =
     await bcrypt.hash(password, 12)
 
@@ -95,12 +114,13 @@ export const changePassword: AppMiddleware<null> = async ctx => {
     await adminService.updatePassword(
       //防止水平越权攻击，使用JWT中保存的管理员id，防止管理员修改其他管理员的密码
       requireAdmin(ctx).id,
-      passwordHash
+      passwordHash,
+      admin.password
     )
 
   if (affectedRows === 0) {
     ctx.body = fail(
-      '管理员不存在或已被删除',
+      '账号信息已变化，请重新登录后再试',
       2
     )
     return

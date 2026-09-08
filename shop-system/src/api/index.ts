@@ -1,9 +1,16 @@
 import request from '../utils/request'
 import config from '../config'
+import type { ChangeAdminPasswordInput, UploadResult } from '../../../shared/api'
 import type { Credentials, LoginResult, PublicAdmin, Category, CategoryInput, IdInput, InsertResult, GoodsInput, GoodsDetail, GoodsListItem, GoodsQuery, PageResult } from '../../../shared/api'
 export const login = (data: Credentials) => request.post<LoginResult>('/admin/login', data)
 export const getAdmin = () => request.get<PublicAdmin>('/admin/admin')
-export const changeAdminPassword = (data: { password: string }) => request.post<null>('/admin/admin/changePassword', data)
+export const changeAdminPassword = (data: ChangeAdminPasswordInput) => request.post<null>('/admin/admin/changePassword', data)
+export const uploadAdminAvatar = (file: File) => {
+  const data = new FormData()
+  data.append('type', 'admin_avatar')
+  data.append('file', file)
+  return request.post<UploadResult>('/admin/upload/picture', data)
+}
 export const changeAdminAvatar = (data: { avatar: string }) => request.post<{ avatar: string }>('/admin/admin/changeAvatar', data)
 export const uploadPictureURL = () => config.baseURL + '/admin/upload/picture'
 export const getCategoryList = () => request.get<Category[]>('/admin/category/list')

@@ -3,6 +3,7 @@ export type ApiResponse<T> =
   | { errno: 0; data: T; errmsg: string }
   | { errno: 1 | 2; data: null; errmsg: string }
 export interface Credentials { username: string; password: string }
+export interface ChangeAdminPasswordInput { currentPassword: string; password: string }
 export interface LoginResult { token: string }
 export interface PublicUser { id: number; username: string; avatar: string }
 export type PublicAdmin = PublicUser
@@ -50,3 +51,151 @@ export interface CursorPageResult<T> {
   nextLastId: number
 }
 export interface UploadResult { savepath: string; url?: string }
+
+/**
+ * 后端返回给前台的购物车商品。
+ */
+export interface CartItem {
+  id: number
+  goods_id: number
+  name: string
+  picture: string
+  spec: string
+  price: number
+  stock: number
+  quantity: number
+  selected_spec: string
+  address_id: number | null
+}
+
+/**
+ * 加入购物车时前端提交的数据。
+ */
+export interface AddCartInput {
+  goods_id: number
+  quantity: number
+  selected_spec: string
+  address_id: number
+}
+
+/**
+ * 修改购物车数量时前端提交的数据。
+ */
+export interface UpdateCartInput {
+  id: number
+  quantity: number
+}
+
+export type OrderStatus =
+  | 'pending'
+  | 'paid'
+  | 'cancelled'
+  | 'shipped'
+  | 'completed'
+
+export interface CreateOrderInput {
+  cart_item_ids?: number[]
+  direct_item?: DirectOrderItem
+  address_id: number
+}
+
+export interface DirectOrderItem {
+  goods_id: number
+  quantity: number
+  selected_spec: string
+}
+
+export interface AddressInput {
+  receiver_name: string
+  receiver_phone: string
+  receiver_address: string
+  is_default: boolean
+}
+
+export interface UpdateAddressInput extends AddressInput {
+  id: number
+}
+
+export interface UserAddress extends AddressInput {
+  id: number
+}
+
+export interface CreateOrderResult {
+  id: number
+  order_no: string
+}
+
+export interface OrderItem {
+  id: number
+  goods_id: number
+  goods_name: string
+  goods_picture: string
+  goods_spec: string
+  unit_price: number
+  quantity: number
+  subtotal: number
+}
+
+export interface OrderSummary {
+  id: number
+  order_no: string
+  status: OrderStatus
+  total_amount: number
+  receiver_name: string
+  created_at: string
+}
+
+export interface OrderDetail extends OrderSummary {
+  receiver_phone: string
+  receiver_address: string
+  items: OrderItem[]
+}
+
+export interface UserDashboard {
+  cart_count: number
+  pending_order_count: number
+  after_sale_count: number
+  reviewable_count: number
+}
+
+export type RefundStatus = 'pending' | 'approved' | 'rejected'
+
+export interface CreateRefundInput {
+  order_id: number
+  reason: string
+}
+
+export interface RefundApplication {
+  id: number
+  order_id: number
+  order_no: string
+  refund_amount: number
+  reason: string
+  status: RefundStatus
+  created_at: string
+}
+
+export interface ReviewableItem {
+  order_item_id: number
+  order_id: number
+  goods_id: number
+  goods_name: string
+  goods_picture: string
+  goods_spec: string
+  created_at: string
+}
+
+export interface CreateReviewInput {
+  order_item_id: number
+  rating: number
+  content: string
+}
+
+export interface GoodsReview {
+  id: number
+  username: string
+  avatar: string
+  rating: number
+  content: string
+  created_at: string
+}

@@ -1,4 +1,4 @@
-import type { LoginResult, PublicUser, RegisterResult } from '../../../shared/api'
+import type { LoginResult, PublicUser, RegisterResult, UserDashboard } from '../../../shared/api'
 import { requireUser } from '../utils/identity'
 import type { AppMiddleware } from '../types'
 import { getBody, hasErrorCode } from '../utils/input'
@@ -152,4 +152,25 @@ export const getUser: AppMiddleware<PublicUser> = async ctx => {
   } = requireUser(ctx)
 
   ctx.body = success(publicUser)
+}
+
+export const changeAvatar: AppMiddleware<{ avatar: string }> = async ctx => {
+  const user = requireUser(ctx)
+  const body = getBody(ctx.request.body)
+  const avatar = typeof body.avatar === 'string'
+    ? body.avatar.trim()
+    : ''
+
+  if (!/^uploads\/[0-9a-f-]+\.(?:jpg|png|webp|gif)$/i.test(avatar)) {
+    ctx.body = fail('头像地址不正确')
+    return
+  }
+
+  await userService.updateAvatar(user.id, avatar)
+  ctx.body = success({ avatar })
+}
+
+export const getDashboard: AppMiddleware<UserDashboard> = async ctx => {
+  const user = requireUser(ctx)
+  ctx.body = success(await userService.getDashboard(user.id))
 }

@@ -9,6 +9,11 @@ import uploadRouter from './upload'
 import goodsRouter from './goods'
 import homeUserRouter from './homeUser'
 import homeCatalogRouter from './homeCatalog'
+import cartRouter from './cart'
+import orderRouter from './order'
+import addressRouter from './address'
+import refundRouter from './refund'
+import reviewRouter from './review'
 
 const router = new Router<AppState>()
 
@@ -35,5 +40,22 @@ router.use(homeUserRouter.allowedMethods())
 // 挂载前台公开分类和商品路由
 router.use(homeCatalogRouter.routes())
 router.use(homeCatalogRouter.allowedMethods())
+
+// 挂载前台购物车路由
+router.use(cartRouter.routes())
+router.use(cartRouter.allowedMethods())
+
+// 挂载前台订单路由
+router.use(orderRouter.routes())
+router.use(orderRouter.allowedMethods())
+
+// 挂载前台收货地址路由
+router.use(addressRouter.routes())
+router.use(addressRouter.allowedMethods())
+
+router.use(refundRouter.routes())
+router.use(refundRouter.allowedMethods())
+router.use(reviewRouter.routes())
+router.use(reviewRouter.allowedMethods())
 
 export default router

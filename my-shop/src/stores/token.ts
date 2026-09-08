@@ -24,10 +24,14 @@ const useTokenStore = defineStore(
       localStorage.removeItem(STORAGE_KEY)
     }
 
+    const syncFromStorage = () => {
+      token.value = localStorage.getItem(STORAGE_KEY) || ''
+    }
     return {
       token,
       updateToken,
-      removeToken
+      removeToken,
+      syncFromStorage
     }
   }
 )

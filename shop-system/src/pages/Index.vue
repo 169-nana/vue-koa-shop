@@ -9,7 +9,7 @@
           <Aside />
         </el-aside>
         <el-main>
-          <router-view v-if="route.name === 'index'" />
+          <router-view v-if="route.name === 'index' || route.name === 'setting'" />
           <el-card v-else class="box-card" shadow="never">
             <router-view />
           </el-card>

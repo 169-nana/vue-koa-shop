@@ -16,6 +16,9 @@ const request = axios.create({
 request.interceptors.request.use(
   requestConfig => {
     const tokenStore = useTokenStore()
+    const previousToken = tokenStore.token
+    tokenStore.syncFromStorage()
+    if (previousToken !== tokenStore.token) throw new Error('登录账号已变化，请重新操作')
 
     if (tokenStore.token) {
       requestConfig.headers.jwt =
@@ -29,6 +32,12 @@ request.interceptors.request.use(
 // 统一处理后端响应
 request.interceptors.response.use(
   (response: AxiosResponse<ApiResponse<unknown>>) => {
+    const currentSession = useTokenStore()
+    currentSession.syncFromStorage()
+    const requestToken = response.config.headers.jwt
+    if (typeof requestToken === 'string' && requestToken !== currentSession.token) {
+      return Promise.reject(new Error('登录账号已变化，请重试'))
+    }
     const {
       errno,
       errmsg
@@ -46,8 +55,7 @@ request.interceptors.response.use(
       userStore.removeUser()
 
       if (
-        router.currentRoute.value.name !==
-        'login'
+        router.currentRoute.value.matched.some(record => record.meta.requiresAuth)
       ) {
         router.replace({
           name: 'login',

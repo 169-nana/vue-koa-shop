@@ -6,6 +6,7 @@ import { success, fail } from '../utils/response'
 
 const allowedTypes = new Set([
   'admin_avatar',
+  'user_avatar',
   'category_picture',
   'goods_picture',
   'goods_album',
