@@ -106,7 +106,7 @@ onMounted(loadProfile)
           <RouterLink to="/cart"><span>购物袋</span><strong>我的购物车</strong><small>{{ dashboard.cart_count }} 件商品</small></RouterLink>
           <RouterLink to="/addresses"><span>地址簿</span><strong>收货地址</strong><small>管理默认收货信息</small></RouterLink>
           <button type="button" @click="selectAvatar"><span>个人资料</span><strong>修改头像</strong><small>支持 500KB 内图片</small></button>
-          <RouterLink to="/merchant-service"><span>商家服务</span><strong>商家入驻 / 商家中心</strong><small>已入驻商家可直接进入</small></RouterLink>
+          <RouterLink to="/merchant-service" target="_blank" rel="noopener"><span>商家服务</span><strong>商家入驻 / 商家中心</strong><small>已入驻商家可直接进入</small></RouterLink>
           <RouterLink to="/notifications"><span>通知</span><strong>消息中心</strong><small>查看商家与商品审核结果</small></RouterLink>
         </div>
       </section>

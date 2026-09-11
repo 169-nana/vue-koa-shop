@@ -17,6 +17,8 @@ import reviewRouter from './review'
 import merchantRouter from './merchant'
 import notificationRouter from './notification'
 import moderationRouter from './moderation'
+import governanceRouter from './governance'
+import shopAgentRouter from './shopAgent'
 
 const router = new Router<AppState>()
 
@@ -66,5 +68,11 @@ router.use(notificationRouter.routes())
 router.use(notificationRouter.allowedMethods())
 router.use(moderationRouter.routes())
 router.use(moderationRouter.allowedMethods())
+router.use(governanceRouter.routes())
+router.use(governanceRouter.allowedMethods())
+
+//挂载商家智能客服路由
+router.use(shopAgentRouter.routes())
+router.use(shopAgentRouter.allowedMethods())
 
 export default router

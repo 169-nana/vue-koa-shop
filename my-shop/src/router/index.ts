@@ -17,6 +17,11 @@ const routes: RouteRecordRaw[] = [
       import('../pages/GoodsDetail.vue')
   },
   {
+    path: '/category/:id',
+    name: 'category-goods',
+    component: () => import('../pages/CategoryGoods.vue')
+  },
+  {
     path: '/cart',
     name: 'cart',
     component: () => import('../pages/Cart.vue'),
@@ -93,9 +98,22 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/merchant',
-    name: 'merchant-center',
-    component: () => import('../pages/MerchantCenter.vue'),
-    meta: { requiresAuth: true }
+    redirect: { name: 'merchant-service' }
+  },
+  {
+    path: '/merchant/:merchantId',
+    component: () => import('../components/MerchantWorkspace.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      { path: '', redirect: { name: 'merchant-overview' } },
+      { path: 'overview', name: 'merchant-overview', component: () => import('../pages/merchant/MerchantOverview.vue') },
+      { path: 'products', name: 'merchant-products', component: () => import('../pages/merchant/MerchantProducts.vue') },
+      { path: 'products/new', name: 'merchant-product-new', component: () => import('../pages/merchant/MerchantProductEditor.vue') },
+      { path: 'products/edit', name: 'merchant-product-edit', component: () => import('../pages/merchant/MerchantProductEditor.vue') },
+      { path: 'submissions', name: 'merchant-submissions', component: () => import('../pages/merchant/MerchantSubmissions.vue') },
+      { path: 'stores', name: 'merchant-stores', component: () => import('../pages/merchant/MerchantStores.vue') },
+      { path: 'messages', name: 'merchant-messages', component: () => import('../pages/merchant/MerchantMessages.vue') }
+    ]
   },
   {
     path: '/notifications',

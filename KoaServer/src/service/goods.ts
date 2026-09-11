@@ -1,6 +1,6 @@
-import type { GoodsListItem, Goods, AlbumImage } from '../../../shared/api'
+import type { GoodsListItem, Goods, AlbumImage, PublicGoodsDetail } from '../../../shared/api'
 import type { ResultSetHeader, PoolConnection } from 'mysql2/promise'
-import type { GoodsRow, GoodsListRow, AlbumRow, CountRow } from '../db/types'
+import type { GoodsRow, GoodsListRow, AlbumRow, CountRow, PublicGoodsDetailRow } from '../db/types'
 import type { GoodsInput, IdInput } from '../../../shared/api'
 import type {GoodsFilters,PublicGoodsFilters} from '../types'
 
@@ -140,10 +140,15 @@ export const findById = async (id: number): Promise<Goods | null> => {
 }
 
 // 前台详情只能读取已上架商品，避免通过猜测 ID 绕过列表过滤。
-export const findPublicById = async (id: number): Promise<Goods | null> => {
-  const [rows] = await db.execute<GoodsRow[]>(`
-    SELECT id, category_id, name, price, picture, stock, spec, description
-    FROM vueshop_goods WHERE id = ? AND sale_status = 'on_sale' LIMIT 1
+export const findPublicById = async (id: number): Promise<PublicGoodsDetail | null> => {
+  const [rows] = await db.execute<PublicGoodsDetailRow[]>(`
+    SELECT g.id, g.category_id, g.name, g.price, g.picture, g.stock, g.spec,
+      g.description, m.shop_name AS merchant_name
+    FROM vueshop_goods AS g
+    LEFT JOIN vueshop_merchant AS m ON m.id = g.merchant_id
+    WHERE g.id = ? AND g.sale_status = 'on_sale' AND g.compliance_status = 'normal'
+      AND (g.merchant_id IS NULL OR m.status = 'approved')
+    LIMIT 1
   `, [id])
   return rows[0] ? { ...rows[0], price: Number(rows[0].price) } : null
 }
@@ -170,7 +175,8 @@ export const findPublicPage = async ({
   pagesize,
   categoryId
 }: PublicGoodsFilters): Promise<Goods[]> => {
-  const clauses: string[] = ["g.sale_status = 'on_sale'"]
+  const clauses: string[] = ["g.sale_status = 'on_sale'", "g.compliance_status = 'normal'",
+    "(g.merchant_id IS NULL OR EXISTS (SELECT 1 FROM vueshop_merchant pm WHERE pm.id = g.merchant_id AND pm.status = 'approved'))"]
   const values: number[] = []
 
   /*

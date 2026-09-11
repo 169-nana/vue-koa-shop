@@ -80,11 +80,16 @@ export const add = async (
             COALESCE(c.quantity, 0)
               AS cart_quantity
           FROM vueshop_goods AS g
+          LEFT JOIN vueshop_merchant AS m
+            ON m.id = g.merchant_id
           LEFT JOIN vueshop_cart AS c
             ON c.goods_id = g.id
             AND c.user_id = ?
             AND c.selected_spec = ?
-          WHERE g.id = ? AND g.sale_status = 'on_sale'
+          WHERE g.id = ?
+            AND g.sale_status = 'on_sale'
+            AND g.compliance_status = 'normal'
+            AND (g.merchant_id IS NULL OR m.status = 'approved')
           LIMIT 1
           FOR UPDATE
         `,

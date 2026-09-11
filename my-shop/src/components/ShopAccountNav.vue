@@ -1,6 +1,6 @@
 <template>
   <nav class="account-nav" aria-label="用户导航">
-    <RouterLink class="merchant-link" to="/merchant-service">商家服务</RouterLink>
+    <RouterLink class="merchant-link" to="/merchant-service" target="_blank" rel="noopener">商家服务</RouterLink>
     <RouterLink to="/cart">购物车</RouterLink>
     <RouterLink v-if="tokenStore.token" class="notification-link" to="/notifications" aria-label="消息中心">
       <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span>消息</span><b v-if="unreadCount > 0" class="badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</b>

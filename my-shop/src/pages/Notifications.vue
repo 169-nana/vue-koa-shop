@@ -14,7 +14,7 @@ async function open(item: NotificationItem) {
   if (!item.read_at) { await readNotification(item.id); item.read_at = new Date().toISOString() }
 }
 async function readAll() { await readAllNotifications(); await load() }
-function target(item: NotificationItem) { return item.business_type === 'merchant_application' ? '/merchant/apply' : '/merchant' }
+function target(item: NotificationItem) { return item.business_type === 'merchant_application' ? '/merchant/apply' : '/merchant-service' }
 onMounted(load)
 </script>
 <template>

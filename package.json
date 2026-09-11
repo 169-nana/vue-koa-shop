@@ -1,7 +1,9 @@
 {
   "name": "vue-shop-project",
   "private": true,
-  "engines": { "node": ">=22.12.0" },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "setup": "npm ci --prefix my-shop && npm ci --prefix shop-system && npm ci --prefix KoaServer",
     "dev:shop": "npm run dev --prefix my-shop",

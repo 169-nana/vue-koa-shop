@@ -1,5 +1,6 @@
 <template>
   <RouterView :key="route.meta.requiresAuth ? sessionRevision : 0" />
+  <ShopAssistant />
 </template>
 
 <script setup lang="ts">
@@ -7,6 +8,7 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import useTokenStore from './stores/token'
 import useUserStore from './stores/user'
+import ShopAssistant from './components/ShopAssistant.vue'
 const tokenStore = useTokenStore(), userStore = useUserStore()
 const route = useRoute(), router = useRouter()
 const sessionRevision = ref(0)

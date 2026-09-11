@@ -22,6 +22,7 @@ export interface GoodsInput {
   picture: string; album: string[]; spec: string; description: string
 }
 export interface Goods extends Omit<GoodsInput, 'album'> { id: number }
+export interface PublicGoodsDetail extends Goods { merchant_name: string | null }
 export interface GoodsListItem extends Goods { category_name: string | null; parent_category_name: string | null }
 export interface AlbumImage { id: number; goods_id: number; picture: string }
 export interface GoodsDetail extends Goods { album: AlbumImage[] }
@@ -54,6 +55,55 @@ export interface CursorPageResult<T> {
   hasMore: boolean
   nextLastId: number
 }
+
+//定义前后端共享的 Agent 接口契约
+//因为是前后端共享契约，此处不允许前端发送身份类型为system实现越权。允许assistant是为了实现短期记忆
+export type ShopAgentMessageRole =
+  | 'user'
+  | 'assistant'
+
+  //规定与agent助手交互的消息格式
+export interface ShopAgentMessage {
+  role: ShopAgentMessageRole
+  content: string
+}
+
+export interface ShopAgentChatInput {
+  messages: ShopAgentMessage[]
+}
+
+export interface ShopAgentReply {
+  message: string
+  products: Goods[]
+  pending_action?: ShopAgentPendingAction
+}
+
+export interface ShopAgentPendingAction {
+  type: 'add_to_cart'
+  token: string
+  title: string
+  description: string
+  expires_at: string
+}
+
+export interface ShopAgentActionInput {
+  token: string
+}
+
+export interface ShopAgentActionResult {
+  message: string
+  cart_path: '/cart'
+}
+
+export type ShopAgentStreamEvent =
+  | { type: 'delta'; content: string }
+  | { type: 'reset' }
+  | { type: 'products'; products: Goods[] }
+  | { type: 'action'; action: ShopAgentPendingAction }
+  | { type: 'done' }
+  | { type: 'error'; message: string }
+
+//
 export interface UploadResult { savepath: string; url?: string }
 
 /**
@@ -204,12 +254,16 @@ export interface GoodsReview {
   created_at: string
 }
 
-export type MerchantStatus = 'pending' | 'approved' | 'rejected' | 'suspended'
+export type MerchantStatus = 'pending' | 'approved' | 'rejected' | 'suspended' | 'revoked'
 export type GoodsSubmissionStatus = 'draft' | 'pending' | 'approved' | 'rejected'
 export type GoodsSubmissionAction = 'create' | 'update'
 export type GoodsSaleStatus = 'on_sale' | 'off_sale'
+export type GoodsComplianceStatus = 'normal' | 'forced_off_sale'
 export type ReviewDecision = 'approved' | 'rejected'
 export type ReviewScene = 'merchant_application' | 'goods_submission'
+export type EnforcementScene = 'goods_enforcement' | 'merchant_enforcement'
+export type ReasonScene = ReviewScene | EnforcementScene
+export type EnforcementAction = 'force_off_sale' | 'suspend' | 'revoke' | 'restore'
 
 export interface MerchantApplicationInput {
   shop_name: string
@@ -219,24 +273,31 @@ export interface MerchantApplicationInput {
   qualification_picture: string
 }
 
+export interface MerchantApplicationSubmitInput extends MerchantApplicationInput {
+  id?: number
+}
+
 export interface MerchantApplication extends MerchantApplicationInput {
   id: number
   user_id: number
   username: string
   status: MerchantStatus
   rejection_reason: string
+  enforcement_reason: string
+  enforced_at: string | null
+  enforcer_name: string | null
   submitted_at: string
   reviewed_at: string | null
   reviewer_name: string | null
 }
 
 export interface MerchantApplicationState {
-  application: MerchantApplication | null
+  applications: MerchantApplication[]
 }
 
 export interface RejectionReasonOption {
   id: number
-  scene: ReviewScene
+  scene: ReasonScene
   label: string
 }
 
@@ -270,6 +331,58 @@ export interface GoodsSubmission extends GoodsInput {
 export interface MerchantGoodsItem extends Goods {
   merchant_id: number | null
   sale_status: GoodsSaleStatus
+  compliance_status: GoodsComplianceStatus
+  compliance_reason: string
+}
+
+export interface EnforcementInput {
+  expected_version: string
+  confirmation_name?: string
+  business_type: 'goods' | 'merchant'
+  business_id: number
+  action: EnforcementAction
+  reason_ids: number[]
+  additional_note: string
+}
+
+export interface EnforcementGoods extends MerchantGoodsItem {
+  merchant_name: string
+  user_id: number
+  enforced_at: string | null
+  enforcer_name: string | null
+}
+
+export interface ReviewRecord {
+  record_source: string
+  id: number
+  business_type: ReviewScene
+  business_id: number
+  business_name: string
+  merchant_name: string | null
+  decision: ReviewDecision
+  reason_snapshot: string[]
+  additional_note: string
+  reviewer_name: string
+  reviewer_role: AdminRole
+  created_at: string
+}
+
+export interface EnforcementRecord {
+  parent_record_id: number | null
+  id: number
+  business_type: 'goods' | 'merchant'
+  business_id: number
+  business_name: string
+  merchant_id: number
+  merchant_name: string
+  action: EnforcementAction
+  previous_status: string
+  next_status: string
+  reason_snapshot: string[]
+  additional_note: string
+  operator_name: string
+  operator_role: AdminRole
+  created_at: string
 }
 
 export interface StockUpdateInput { id: number; stock: number }
@@ -280,6 +393,7 @@ export type NotificationType =
   | 'merchant_application_rejected'
   | 'merchant_suspended'
   | 'merchant_restored'
+  | 'merchant_revoked'
   | 'goods_approved'
   | 'goods_rejected'
   | 'goods_forced_off_sale'
@@ -302,3 +416,32 @@ export interface NotificationQuery {
 }
 
 export interface UnreadCount { count: number }
+
+export type GovernanceTab = 'goods' | 'merchants' | 'reviews' | 'records'
+export interface GovernanceQuery {
+  page: number
+  page_size: number
+  keyword?: string
+  merchant?: string
+  status?: string
+  operator?: string
+  start_date?: string
+  end_date?: string
+}
+export interface GovernancePage<T> { list: T[]; total: number }
+export interface GovernancePreview {
+  version: string
+  name: string
+  status: string
+  goods_count: number
+  pending_count: number
+}
+export interface GovernanceRecordDetail {
+  record: Record<string, unknown>
+  id: number
+  snapshot: Record<string, unknown> | null
+  current: Record<string, unknown> | null
+  related: Array<{ id: number; kind: 'reviews' | 'records'; name: string; action: string }>
+  parent_id: number | null
+  source: string
+}

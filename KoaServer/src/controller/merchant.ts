@@ -20,17 +20,19 @@ function appErrorMessage(error: unknown): string | null {
 }
 
 export const getApplication: AppMiddleware<MerchantApplicationState> = async ctx => {
-  ctx.body = success({ application: await merchantService.findApplicationByUserId(requireUser(ctx).id) })
+  ctx.body = success({ applications: await merchantService.listApplicationsByUserId(requireUser(ctx).id) })
 }
 
 export const submitApplication: AppMiddleware<InsertResult> = async ctx => {
   const body = getBody(ctx.request.body)
+  const id = body.id === undefined ? undefined : Number(body.id)
   const shopName = typeof body.shop_name === 'string' ? body.shop_name.trim() : ''
   const contactName = typeof body.contact_name === 'string' ? body.contact_name.trim() : ''
   const contactPhone = typeof body.contact_phone === 'string' ? body.contact_phone.trim() : ''
   const description = typeof body.description === 'string' ? body.description.trim() : ''
   const qualificationPicture = typeof body.qualification_picture === 'string'
     ? body.qualification_picture.trim() : ''
+  if (id !== undefined && (!Number.isInteger(id) || id <= 0)) { ctx.body = fail('店铺申请ID不正确'); return }
   if (shopName.length < 2 || shopName.length > 100) { ctx.body = fail('店铺名称必须是2到100个字符'); return }
   if (contactName.length < 2 || contactName.length > 50) { ctx.body = fail('联系人必须是2到50个字符'); return }
   if (!/^[0-9+\-\s]{6,30}$/.test(contactPhone)) { ctx.body = fail('联系电话格式不正确'); return }
@@ -38,6 +40,7 @@ export const submitApplication: AppMiddleware<InsertResult> = async ctx => {
   if (!imagePathPattern.test(qualificationPicture)) { ctx.body = fail('请上传有效的资质图片'); return }
   try {
     const insertId = await merchantService.submitApplication(requireUser(ctx).id, {
+      id,
       shop_name: shopName, contact_name: contactName, contact_phone: contactPhone,
       description, qualification_picture: qualificationPicture
     })

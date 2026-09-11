@@ -48,6 +48,12 @@ const routers: RouteRecordRaw[] = [
           meta: { title: '商品审核' }
         },
         {
+          path: '/governance',
+          name: 'governance',
+          component: () => import('../pages/subpages/Governance.vue'),
+          meta: { title: '违规处置与审核记录' }
+        },
+        {
           path: '/setting',
           name: 'setting',
           component: () => import('../pages/subpages/Setting.vue'),

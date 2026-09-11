@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { AlbumImage, Goods, GoodsReview } from '../../../shared/api'
+import type { AlbumImage, GoodsReview, PublicGoodsDetail } from '../../../shared/api'
 import { addCart, createOrder, getGoodsAlbum, getGoodsDetail, getGoodsReviews } from '../api'
 import { toAssetURL } from '../config'
 import defaultAvatar from '../assets/images/avatar_default.png'
@@ -15,7 +15,7 @@ const route = useRoute()
 const router = useRouter()
 const tokenStore = useTokenStore()
 
-const goods = ref<Goods | null>(null)
+const goods = ref<PublicGoodsDetail | null>(null)
 const album = ref<AlbumImage[]>([])
 const reviews = ref<GoodsReview[]>([])
 const activePicture = ref('')
@@ -199,6 +199,10 @@ onMounted(loadGoods)
             <dt>库存状态</dt>
             <dd>{{ goods.stock > 0 ? `现货 ${goods.stock} 件` : '暂时售罄' }}</dd>
           </div>
+          <div>
+            <dt>商品来源</dt>
+            <dd><span class="seller-badge" :class="{ self: !goods.merchant_name }">{{ goods.merchant_name || '商城自营' }}</span></dd>
+          </div>
         </dl>
 
         <div class="buy-actions">
@@ -274,6 +278,8 @@ dl { margin: 0; border-top: 1px solid #e7ebe8; }
 dl div { display: grid; padding: 17px 0; border-bottom: 1px solid #e7ebe8; grid-template-columns: 95px 1fr; }
 dt { color: #8b958f; }
 dd { margin: 0; }
+.seller-badge { display: inline-flex; padding: 4px 10px; border-radius: 999px; color: #276449; background: #e8f3ec; font-size: 13px; font-weight: 600; }
+.seller-badge.self { color: #9a6134; background: #fbf0df; }
 .buy-actions { display: flex; gap: 12px; margin-top: 24px; }
 .buy-actions button { flex: 1; min-height: 48px; padding: 12px 16px; border: 0; border-radius: 10px; color: white; background: #2d6a4f; cursor: pointer; }
 .buy-actions button.secondary { border: 1px solid #2d6a4f; color: #2d6a4f; background: white; }

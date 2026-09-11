@@ -4,6 +4,7 @@ import type {
   PublicAdmin,
   Category,
   Goods,
+  PublicGoodsDetail,
   GoodsListItem,
   AlbumImage,
   CartItem,
@@ -123,6 +124,8 @@ export type AdminPasswordRow = AdminRow & { password: string }
 export type CategoryRow = RowDataPacket & Category
 
 export type GoodsRow = RowDataPacket & Omit<Goods, 'price'> & { price: string }
+
+export type PublicGoodsDetailRow = RowDataPacket & Omit<PublicGoodsDetail, 'price'> & { price: string }
 
 export type GoodsListRow = GoodsRow & Pick<GoodsListItem, 'category_name' | 'parent_category_name'>
 

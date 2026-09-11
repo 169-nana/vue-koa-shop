@@ -8,7 +8,7 @@ import { toAssetURL } from '../../config'
 const list = ref<MerchantApplication[]>([]), reasons = ref<RejectionReasonOption[]>([]), loading = ref(false)
 const status = ref('pending'), rejectVisible = ref(false), selected = ref<MerchantApplication | null>(null)
 const reasonIds = ref<Array<string | number>>([]), note = ref(''), submitting = ref(false)
-const statusText: Record<string, string> = { pending: '待审核', approved: '已通过', rejected: '已拒绝', suspended: '已停用' }
+const statusText: Record<string, string> = { pending: '待审核', approved: '已通过', rejected: '已拒绝', suspended: '暂停经营', revoked: '资质已撤销' }
 async function load() { loading.value = true; try { list.value = await getMerchantApplications(status.value || undefined) } finally { loading.value = false } }
 async function approve(item: MerchantApplication) {
   try {
@@ -31,7 +31,7 @@ async function reject() {
 onMounted(async () => { reasons.value = await getReviewReasons('merchant_application'); await load() })
 </script>
 <template>
-  <div><div class="heading"><div><h2>商家入驻审核</h2><p>审核用户提交的店铺和资质信息</p></div><el-select v-model="status" style="width:150px" @change="load"><el-option label="全部状态" value=""/><el-option label="待审核" value="pending"/><el-option label="已通过" value="approved"/><el-option label="已拒绝" value="rejected"/></el-select></div>
+  <div><div class="heading"><div><h2>商家入驻审核</h2><p>审核用户提交的店铺和资质信息</p></div><el-select v-model="status" style="width:150px" @change="load"><el-option label="全部状态" value=""/><el-option label="待审核" value="pending"/><el-option label="已通过" value="approved"/><el-option label="已拒绝" value="rejected"/><el-option label="暂停经营" value="suspended"/><el-option label="资质已撤销" value="revoked"/></el-select></div>
     <el-table v-loading="loading" :data="list" border stripe row-key="id">
       <el-table-column type="expand"><template #default="scope"><div class="detail"><p><b>联系人：</b>{{ scope.row.contact_name }} · {{ scope.row.contact_phone }}</p><p><b>店铺简介：</b>{{ scope.row.description || '未填写' }}</p><p v-if="scope.row.rejection_reason"><b>审核意见：</b>{{ scope.row.rejection_reason }}</p><a :href="toAssetURL(scope.row.qualification_picture)" target="_blank"><img :src="toAssetURL(scope.row.qualification_picture)" alt="资质图片"></a></div></template></el-table-column>
       <el-table-column prop="shop_name" label="店铺名称" min-width="180"/><el-table-column prop="username" label="申请用户" width="140"/><el-table-column prop="contact_name" label="联系人" width="120"/><el-table-column label="提交时间" min-width="170"><template #default="scope">{{ new Date(scope.row.submitted_at).toLocaleString() }}</template></el-table-column><el-table-column label="状态" width="100"><template #default="scope"><el-tag :type="scope.row.status === 'approved' ? 'success' : scope.row.status === 'rejected' ? 'danger' : 'warning'">{{ statusText[scope.row.status] }}</el-tag></template></el-table-column>

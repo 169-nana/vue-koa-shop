@@ -22,10 +22,11 @@
         </router-link>
         <router-link :to="{name:'merchant-review'}"><el-menu-item index="3"><el-icon><Checked /></el-icon><span>商家审核</span></el-menu-item></router-link>
         <router-link :to="{name:'goods-review'}"><el-menu-item index="4"><el-icon><DocumentChecked /></el-icon><span>商品审核</span></el-menu-item></router-link>
-        <router-link v-if="admin.role === 'admin'" :to="{name:'accounts'}"><el-menu-item index="5"><el-icon><UserFilled /></el-icon><span>账号管理</span></el-menu-item></router-link>
+        <router-link :to="{name:'governance'}"><el-menu-item index="5"><el-icon><WarningFilled /></el-icon><span>违规与记录</span></el-menu-item></router-link>
+        <router-link v-if="admin.role === 'admin'" :to="{name:'accounts'}"><el-menu-item index="6"><el-icon><UserFilled /></el-icon><span>账号管理</span></el-menu-item></router-link>
         <!-- 个人中心 -->
         <router-link :to="{name: 'setting'}">
-          <el-menu-item index="6">
+          <el-menu-item index="7">
             <el-icon>
               <Setting />
             </el-icon>
@@ -37,7 +38,7 @@
   </el-row>
 </template>
 <script setup lang="ts">
-import { Checked, DocumentChecked, HomeFilled, Setting, ShoppingCartFull, UserFilled } from '@element-plus/icons-vue'
+import { Checked, DocumentChecked, HomeFilled, Setting, ShoppingCartFull, UserFilled, WarningFilled } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import router from '../router'
 import useAdmin from '../stores/admin'
@@ -49,8 +50,9 @@ const menuIndex: Record<string, string> = {
   'goods':'2',
   'merchant-review':'3',
   'goods-review':'4',
-  'accounts':'5',
-  'setting':'6'
+  'governance':'5',
+  'accounts':'6',
+  'setting':'7'
 }
 const active=computed(()=>menuIndex[String(router.currentRoute.value.name)] || '1')
 </script>

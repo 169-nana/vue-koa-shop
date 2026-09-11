@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getMerchantApplication } from '../api'
+import { getMerchantApplications } from '../api'
 
 const router = useRouter()
 const errorMessage = ref('')
@@ -9,8 +9,14 @@ const errorMessage = ref('')
 async function enter() {
   errorMessage.value = ''
   try {
-    const { application } = await getMerchantApplication()
-    await router.replace(application?.status === 'approved' ? '/merchant' : '/merchant/apply')
+    const { applications } = await getMerchantApplications()
+    const approved = applications.find(item => item.status === 'approved')
+    const restricted = applications.find(item => item.status === 'suspended' || item.status === 'revoked')
+    await router.replace(approved
+      ? { name: 'merchant-overview', params: { merchantId: approved.id } }
+      : restricted
+        ? { name: 'merchant-stores', params: { merchantId: restricted.id } }
+        : { name: 'merchant-apply' })
   } catch (error: unknown) {
     errorMessage.value = error instanceof Error ? error.message : '商家服务加载失败'
   }

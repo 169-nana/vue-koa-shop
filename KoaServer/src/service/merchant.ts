@@ -3,7 +3,7 @@ import type {
   GoodsSubmission,
   GoodsSubmissionInput,
   MerchantApplication,
-  MerchantApplicationInput,
+  MerchantApplicationSubmitInput,
   MerchantGoodsItem,
   MerchantStatus
 } from '../../../shared/api'
@@ -17,48 +17,50 @@ type SubmissionRow = RowDataPacket & Omit<GoodsSubmission, 'price' | 'album'> & 
 type AlbumPathRow = RowDataPacket & { picture: string }
 type MerchantGoodsRow = RowDataPacket & Omit<MerchantGoodsItem, 'price'> & { price: string }
 
-const merchantStatuses: MerchantStatus[] = ['pending', 'approved', 'rejected', 'suspended']
+const merchantStatuses: MerchantStatus[] = ['pending', 'approved', 'rejected', 'suspended', 'revoked']
 const parseMerchant = (row: MerchantRow): MerchantApplication => ({
   ...row,
   status: merchantStatuses.find(status => status === row.status) ?? 'pending'
 })
 
-export async function findApplicationByUserId(userId: number): Promise<MerchantApplication | null> {
+export async function listApplicationsByUserId(userId: number): Promise<MerchantApplication[]> {
   const [rows] = await db.execute<MerchantRow[]>(`
     SELECT m.id, m.user_id, u.username, m.shop_name, m.contact_name, m.contact_phone,
-      m.description, m.qualification_picture, m.status, m.rejection_reason,
-      m.submitted_at, m.reviewed_at, a.username AS reviewer_name
+      m.description, m.qualification_picture, m.status, m.rejection_reason, m.enforcement_reason,
+      m.enforced_at, m.submitted_at, m.reviewed_at, a.username AS reviewer_name,
+      enforcer.username AS enforcer_name
     FROM vueshop_merchant AS m
     INNER JOIN vueshop_user AS u ON u.id = m.user_id
     LEFT JOIN vueshop_admin AS a ON a.id = m.reviewed_by
-    WHERE m.user_id = ? LIMIT 1
+    LEFT JOIN vueshop_admin AS enforcer ON enforcer.id = m.enforced_by
+    WHERE m.user_id = ?
+    ORDER BY m.created_at DESC, m.id DESC
   `, [userId])
-  return rows[0] ? parseMerchant(rows[0]) : null
+  return rows.map(parseMerchant)
 }
 
-export async function findApprovedByUserId(userId: number): Promise<MerchantState | null> {
+export async function findApprovedByUserId(userId: number, merchantId: number): Promise<MerchantState | null> {
   const [rows] = await db.execute<MerchantStateRow[]>(
     `SELECT id, user_id, shop_name, status FROM vueshop_merchant
-     WHERE user_id = ? AND status = 'approved' LIMIT 1`,
-    [userId]
+     WHERE id = ? AND user_id = ? AND status = 'approved' LIMIT 1`,
+    [merchantId, userId]
   )
   return rows[0] ?? null
 }
 
-export async function submitApplication(userId: number, input: MerchantApplicationInput): Promise<number> {
-  const current = await findApplicationByUserId(userId)
-  if (current?.status === 'approved') throw new AppError('你已经是商家', 'MERCHANT_APPROVED')
-  if (current?.status === 'suspended') throw new AppError('商家资格已停用，请联系管理员', 'MERCHANT_SUSPENDED')
-  if (current?.status === 'pending') throw new AppError('申请正在审核中，不能重复提交', 'MERCHANT_PENDING')
-
-  if (current) {
+export async function submitApplication(userId: number, input: MerchantApplicationSubmitInput): Promise<number> {
+  if (input.id !== undefined) {
+    const applications = await listApplicationsByUserId(userId)
+    const current = applications.find(item => item.id === input.id)
+    if (!current) throw new AppError('店铺申请不存在', 'MERCHANT_NOT_FOUND')
+    if (current.status !== 'rejected') throw new AppError('只有被拒绝的申请可以重新提交', 'MERCHANT_NOT_REJECTED')
     await db.execute(`
       UPDATE vueshop_merchant SET shop_name = ?, contact_name = ?, contact_phone = ?,
         description = ?, qualification_picture = ?, status = 'pending', rejection_reason = '',
         submitted_at = NOW(), reviewed_at = NULL, reviewed_by = NULL
       WHERE id = ?
     `, [input.shop_name, input.contact_name, input.contact_phone, input.description,
-      input.qualification_picture, current.id])
+      input.qualification_picture, input.id])
     return current.id
   }
 
@@ -188,7 +190,8 @@ export async function submitGoods(merchantId: number, id: number): Promise<void>
 
 export async function listGoods(merchantId: number): Promise<MerchantGoodsItem[]> {
   const [rows] = await db.execute<MerchantGoodsRow[]>(`
-    SELECT id, merchant_id, category_id, name, price, picture, stock, sale_status, spec, description
+    SELECT id, merchant_id, category_id, name, price, picture, stock, sale_status,
+      compliance_status, compliance_reason, spec, description
     FROM vueshop_goods WHERE merchant_id = ? ORDER BY id DESC
   `, [merchantId])
   return rows.map(row => ({ ...row, price: Number(row.price) }))
@@ -203,6 +206,14 @@ export async function updateStock(merchantId: number, goodsId: number, stock: nu
 }
 
 export async function updateSaleStatus(merchantId: number, goodsId: number, saleStatus: string): Promise<void> {
+  if (saleStatus === 'on_sale') {
+    const [rows] = await db.execute<(RowDataPacket & { compliance_status: string })[]>(
+      'SELECT compliance_status FROM vueshop_goods WHERE id = ? AND merchant_id = ? LIMIT 1', [goodsId, merchantId]
+    )
+    if (rows[0]?.compliance_status === 'forced_off_sale') {
+      throw new AppError('该商品已被平台强制下架，请整改后重新提交审核', 'GOODS_FORCED_OFF_SALE')
+    }
+  }
   const [result] = await db.execute<ResultSetHeader>(
     'UPDATE vueshop_goods SET sale_status = ? WHERE id = ? AND merchant_id = ?',
     [saleStatus, goodsId, merchantId]

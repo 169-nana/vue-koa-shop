@@ -2,7 +2,8 @@ import type {
   AlbumImage,
   Category,
   CursorPageResult,
-  Goods
+  Goods,
+  PublicGoodsDetail
 } from '../../../shared/api'
 import type { AppMiddleware } from '../types'
 import * as categoryService from '../service/category'
@@ -106,7 +107,7 @@ export const goodsList:
 
 // GET /home/goods/detail?id=1
 export const goodsDetail:
-  AppMiddleware<Goods> = async ctx => {
+  AppMiddleware<PublicGoodsDetail> = async ctx => {
     const id = Number(ctx.query.id)
 
     if (

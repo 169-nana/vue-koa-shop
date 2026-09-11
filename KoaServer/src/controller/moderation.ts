@@ -11,7 +11,7 @@ import { fail, success } from '../utils/response'
 import { requireAdmin } from '../utils/identity'
 import * as moderationService from '../service/moderation'
 
-const merchantStatuses = new Set(['pending', 'approved', 'rejected', 'suspended'])
+const merchantStatuses = new Set(['pending', 'approved', 'rejected', 'suspended', 'revoked'])
 const submissionStatuses = new Set(['draft', 'pending', 'approved', 'rejected'])
 
 function getReviewInput(value: unknown): ReviewInput | null {
