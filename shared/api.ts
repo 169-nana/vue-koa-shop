@@ -76,6 +76,7 @@ export interface ShopAgentReply {
   message: string
   products: Goods[]
   pending_action?: ShopAgentPendingAction
+  request_id?: string
 }
 
 export interface ShopAgentPendingAction {
@@ -96,12 +97,115 @@ export interface ShopAgentActionResult {
 }
 
 export type ShopAgentStreamEvent =
+  | { type: 'meta'; request_id: string }
   | { type: 'delta'; content: string }
   | { type: 'reset' }
   | { type: 'products'; products: Goods[] }
   | { type: 'action'; action: ShopAgentPendingAction }
   | { type: 'done' }
   | { type: 'error'; message: string }
+
+export type AgentFeedbackRating = 'helpful' | 'unhelpful'
+export interface AgentFeedbackInput {
+  request_id: string
+  rating: AgentFeedbackRating
+  category?: string
+  comment?: string
+}
+
+export interface AgentKnowledgeRecord {
+  id: number
+  category: string
+  title: string
+  keywords: string
+  content: string
+  enabled: boolean
+  sort_order: number
+  valid_from: string | null
+  valid_until: string | null
+  created_at: string
+  updated_at: string
+}
+export interface AgentKnowledgeInput {
+  id?: number
+  category: string
+  title: string
+  keywords: string
+  content: string
+  enabled: boolean
+  sort_order: number
+  valid_from?: string | null
+  valid_until?: string | null
+}
+
+export interface AgentMetricPoint {
+  date: string
+  calls: number
+  successes: number
+  average_duration_ms: number
+}
+export interface AgentMetricBreakdown {
+  name: string
+  count: number
+}
+export interface AgentMetrics {
+  days: number
+  calls: number
+  successes: number
+  failures: number
+  success_rate: number
+  average_duration_ms: number
+  recommended_products: number
+  product_clicks: number
+  prepared_actions: number
+  added_to_cart: number
+  helpful: number
+  unhelpful: number
+  daily: AgentMetricPoint[]
+  errors: AgentMetricBreakdown[]
+  tools: AgentMetricBreakdown[]
+}
+
+export type AgentPromptStatus = 'draft' | 'published' | 'archived'
+export interface AgentPromptVersion {
+  id: number
+  version: number
+  content: string
+  status: AgentPromptStatus
+  eval_score: number | null
+  created_by_name: string
+  published_by_name: string | null
+  created_at: string
+  published_at: string | null
+}
+export interface AgentPromptInput { content: string }
+
+export interface AgentEvalCase {
+  id: number
+  name: string
+  question: string
+  expected_keywords: string[]
+  forbidden_keywords: string[]
+  require_tool: boolean
+  min_product_count: number
+  enabled: boolean
+  sort_order: number
+}
+export interface AgentEvalCaseInput extends Omit<AgentEvalCase, 'id'> { id?: number }
+export interface AgentEvalCaseResult {
+  case_id: number
+  name: string
+  passed: boolean
+  answer: string
+  reasons: string[]
+}
+export interface AgentEvalRunResult {
+  prompt_version_id: number
+  passed: number
+  total: number
+  score: number
+  results: AgentEvalCaseResult[]
+}
 
 //
 export interface UploadResult { savepath: string; url?: string }

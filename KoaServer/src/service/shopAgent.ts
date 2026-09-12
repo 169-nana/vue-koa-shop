@@ -12,15 +12,17 @@ import type {
 
 import config from '../config'
 import { getDeepSeekClient } from '../agent/deepseekClient'
-import { SHOP_AGENT_INSTRUCTIONS } from '../agent/instructions'
 import { SHOP_AGENT_TOOLS } from '../agent/tools'
 import { executeShopAgentTool } from '../agent/executeTool'
 import { AppError } from '../utils/input'
+import { getActiveAgentPrompt, type ActiveAgentPrompt } from './agentPrompt'
 
 const MAX_TOOL_ROUNDS = 4
 
 export interface ShopAgentRunResult extends ShopAgentReply {
   toolCalls: number
+  toolNames: string[]
+  promptVersionId: number | null
 }
 
 type DeepSeekChatRequest =
@@ -34,12 +36,14 @@ export async function runShopAgent(
   history: ShopAgentMessage[],
   userId?: number,
   onDelta?: (content: string) => void,
-  onReset?: () => void
+  onReset?: () => void,
+  promptOverride?: ActiveAgentPrompt
 ): Promise<ShopAgentRunResult> {
+  const activePrompt = promptOverride ?? await getActiveAgentPrompt()
   const messages: ChatCompletionMessageParam[] = [
     {
       role: 'system',
-      content: SHOP_AGENT_INSTRUCTIONS
+      content: activePrompt.content
     },
     ...history.map(message => ({
       role: message.role,
@@ -52,6 +56,7 @@ export async function runShopAgent(
     const referencedProducts = new Map<number, ShopAgentReply['products'][number]>()
     let pendingAction: ShopAgentReply['pending_action']
     let toolCalls = 0
+    const toolNames = new Set<string>()
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const request: DeepSeekChatRequest = {
@@ -129,12 +134,15 @@ export async function runShopAgent(
           message: content,
           products: [...referencedProducts.values()],
           ...(pendingAction ? { pending_action: pendingAction } : {}),
-          toolCalls
+          toolCalls,
+          toolNames: [...toolNames],
+          promptVersionId: activePrompt.id
         }
       }
 
       for (const call of functionCalls) {
         toolCalls += 1
+        toolNames.add(call.function.name)
         if (call.function.name === 'prepare_add_to_cart' && pendingAction) {
           messages.push({
             role: 'tool',

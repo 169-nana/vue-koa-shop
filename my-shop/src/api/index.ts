@@ -43,6 +43,7 @@ import type {
   ShopAgentActionInput,
   ShopAgentActionResult,
   ShopAgentPendingAction,
+  AgentFeedbackInput,
   ShopAgentReply,
   ShopAgentStreamEvent,
   StockUpdateInput,
@@ -230,6 +231,7 @@ export const chatWithShopAgent = (
 )
 
 export interface ShopAgentStreamHandlers {
+  onMeta: (requestId: string) => void
   onDelta: (content: string) => void
   onReset: () => void
   onProducts: (products: Goods[]) => void
@@ -239,6 +241,9 @@ export interface ShopAgentStreamHandlers {
 function isStreamEvent(value: unknown): value is ShopAgentStreamEvent {
   if (typeof value !== 'object' || value === null || !('type' in value)) return false
   if (value.type === 'done' || value.type === 'reset') return true
+  if (value.type === 'meta') {
+    return 'request_id' in value && typeof value.request_id === 'string'
+  }
   if (value.type === 'delta') return 'content' in value && typeof value.content === 'string'
   if (value.type === 'error') return 'message' in value && typeof value.message === 'string'
   if (value.type === 'action') {
@@ -307,6 +312,7 @@ export async function streamWithShopAgent(
     const parsed: unknown = JSON.parse(dataLine.slice(6))
     if (!isStreamEvent(parsed)) throw new Error('智能助手返回了无法识别的数据')
 
+    if (parsed.type === 'meta') handlers.onMeta(parsed.request_id)
     if (parsed.type === 'delta') handlers.onDelta(parsed.content)
     if (parsed.type === 'reset') handlers.onReset()
     if (parsed.type === 'products') handlers.onProducts(parsed.products)
@@ -335,4 +341,10 @@ export const trackAgentProductClick = (goodsId: number, authenticated: boolean) 
       ? '/home/agent/events/product-click-auth'
       : '/home/agent/events/product-click',
     { goods_id: goodsId }
+  )
+
+export const submitAgentFeedback = (data: AgentFeedbackInput, authenticated: boolean) =>
+  request.post<null>(
+    authenticated ? '/home/agent/feedback-auth' : '/home/agent/feedback',
+    data
   )

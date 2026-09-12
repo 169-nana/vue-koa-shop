@@ -9,6 +9,7 @@ import type {
 
 import {
   confirmAgentAddToCart,
+  submitAgentFeedback,
   streamWithShopAgent,
   trackAgentProductClick
 } from '../api'
@@ -20,6 +21,8 @@ interface DisplayMessage extends ShopAgentMessage {
   failed?: boolean
   pendingAction?: ShopAgentPendingAction
   actionResult?: string
+  requestId?: string
+  feedback?: 'helpful' | 'unhelpful'
 }
 
 const WELCOME: DisplayMessage = {
@@ -120,6 +123,9 @@ async function sendMessage(preset?: string): Promise<void> {
       { messages: history },
       tokenStore.token,
       {
+        onMeta: requestId => {
+          assistantMessage.requestId = requestId
+        },
         onDelta: chunk => {
           assistantMessage.content += chunk
           void scrollToBottom()
@@ -183,6 +189,22 @@ function handleProductClick(goodsId: number): void {
   opened.value = false
   void trackAgentProductClick(goodsId, Boolean(tokenStore.token)).catch(() => undefined)
 }
+
+async function sendFeedback(
+  message: DisplayMessage,
+  rating: 'helpful' | 'unhelpful'
+): Promise<void> {
+  if (!message.requestId || message.feedback) return
+  try {
+    await submitAgentFeedback(
+      { request_id: message.requestId, rating },
+      Boolean(tokenStore.token)
+    )
+    message.feedback = rating
+  } catch {
+    // 反馈失败不打断顾客继续聊天。
+  }
+}
 </script>
 
 <template>
@@ -243,6 +265,13 @@ function handleProductClick(goodsId: number): void {
         <RouterLink v-if="message.actionResult" class="action-result" to="/cart" @click="opened = false">
           {{ message.actionResult }}，查看购物车 →
         </RouterLink>
+        <div v-if="message.requestId && !message.failed" class="feedback">
+          <span>{{ message.feedback ? '感谢反馈' : '这个回答有帮助吗？' }}</span>
+          <template v-if="!message.feedback">
+            <button type="button" aria-label="有帮助" @click="sendFeedback(message, 'helpful')">👍</button>
+            <button type="button" aria-label="没帮助" @click="sendFeedback(message, 'unhelpful')">👎</button>
+          </template>
+        </div>
       </article>
 
       <div v-if="messages.length === 1" class="quick-prompts">
@@ -302,6 +331,8 @@ header button { border: 0; color: #fff; background: transparent; font-size: 24px
 .action-card button { justify-self: start; padding: 7px 11px; border: 0; border-radius: 8px; color: #fff; background: #2d6a4f; cursor: pointer; }
 .action-card button:disabled { opacity: .55; }
 .action-result { display: block; margin-top: 7px; color: #2d6a4f; font-size: 12px; font-weight: 700; }
+.feedback { display: flex; margin-top: 6px; align-items: center; gap: 5px; color: #8a958e; font-size: 10px; }
+.feedback button { padding: 2px 4px; border: 0; background: transparent; cursor: pointer; }
 .quick-prompts { display: flex; flex-wrap: wrap; gap: 7px; }
 .quick-prompts button { padding: 7px 10px; border: 1px solid #b8d0c1; border-radius: 16px; color: #35664e; background: #fff; font-size: 12px; cursor: pointer; }
 form { display: grid; padding: 11px 12px 8px; grid-template-columns: 1fr auto; align-items: end; gap: 8px; border-top: 1px solid #e3e9e5; background: #fff; }

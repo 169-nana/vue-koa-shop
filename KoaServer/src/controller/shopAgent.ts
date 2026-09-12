@@ -1,8 +1,10 @@
 import type { ServerResponse } from 'node:http'
+import { randomUUID } from 'node:crypto'
 
 import type {
   ShopAgentMessage,
   ShopAgentActionResult,
+  AgentFeedbackInput,
   ShopAgentReply,
   ShopAgentStreamEvent
 } from '../../../shared/api'
@@ -12,6 +14,7 @@ import type { AppContext, AppMiddleware } from '../types'
 import { parseAgentMessages } from '../agent/validation'
 import { recordAgentCall, recordAgentConversion } from '../service/agentObservability'
 import { executeAddToCart } from '../service/agentCartAction'
+import { saveFeedback } from '../service/agentOperations'
 import { runShopAgent } from '../service/shopAgent'
 import { AppError, getBody } from '../utils/input'
 import { requireUser } from '../utils/identity'
@@ -35,6 +38,7 @@ function requestKey(ctx: AppContext): string {
 async function runAndRecord(
   ctx: AppContext,
   messages: ShopAgentMessage[],
+  requestId: string,
   onDelta?: (content: string) => void,
   onReset?: () => void
 ): Promise<ShopAgentReply> {
@@ -50,25 +54,36 @@ async function runAndRecord(
     const reply: ShopAgentReply = {
       message: result.message,
       products: result.products,
+      request_id: requestId,
       ...(result.pending_action ? { pending_action: result.pending_action } : {})
     }
-    void recordAgentCall({
+    await recordAgentCall({
       userId: ctx.state.user?.id,
       requestKey: requestKey(ctx),
       success: true,
       durationMs: Date.now() - startedAt,
       promptChars: promptLength(messages),
-      responseChars: reply.message.length
+      responseChars: reply.message.length,
+      requestId,
+      promptVersionId: result.promptVersionId,
+      toolCalls: result.toolCalls,
+      toolNames: result.toolNames,
+      recommendedProducts: result.products.length
     })
     return reply
   } catch (error: unknown) {
-    void recordAgentCall({
+    await recordAgentCall({
       userId: ctx.state.user?.id,
       requestKey: requestKey(ctx),
       success: false,
       durationMs: Date.now() - startedAt,
       promptChars: promptLength(messages),
       responseChars: 0,
+      requestId,
+      promptVersionId: null,
+      toolCalls: 0,
+      toolNames: [],
+      recommendedProducts: 0,
       errorCode: error instanceof AppError ? error.code : 'UNKNOWN_ERROR'
     })
     throw error
@@ -84,7 +99,7 @@ export const chat: AppMiddleware<ShopAgentReply> = async ctx => {
   }
 
   try {
-    ctx.body = success(await runAndRecord(ctx, messages))
+    ctx.body = success(await runAndRecord(ctx, messages, randomUUID()))
   } catch (error: unknown) {
     if (error instanceof AppError) {
       ctx.body = fail(error.message)
@@ -129,6 +144,35 @@ export const trackProductClick: AppMiddleware<null> = async ctx => {
   ctx.body = success()
 }
 
+function parseFeedback(value: unknown): AgentFeedbackInput | null {
+  const body = getBody(value)
+  if (
+    typeof body.request_id !== 'string' ||
+    !/^[a-f0-9-]{36}$/i.test(body.request_id) ||
+    (body.rating !== 'helpful' && body.rating !== 'unhelpful') ||
+    (body.category !== undefined && (typeof body.category !== 'string' || body.category.length > 60)) ||
+    (body.comment !== undefined && (typeof body.comment !== 'string' || body.comment.length > 500))
+  ) return null
+  return {
+    request_id: body.request_id,
+    rating: body.rating,
+    ...(typeof body.category === 'string' ? { category: body.category.trim() } : {}),
+    ...(typeof body.comment === 'string' ? { comment: body.comment.trim() } : {})
+  }
+}
+
+export const feedback: AppMiddleware<null> = async ctx => {
+  const input = parseFeedback(ctx.request.body)
+  if (!input) { ctx.body = fail('反馈参数不正确'); return }
+  try {
+    await saveFeedback(input, ctx.state.user?.id, requestKey(ctx))
+    ctx.body = success()
+  } catch (error: unknown) {
+    if (error instanceof AppError) { ctx.body = fail(error.message); return }
+    throw error
+  }
+}
+
 function writeEvent(response: ServerResponse, event: ShopAgentStreamEvent): void {
   if (!response.destroyed && !response.writableEnded) {
     response.write(`data: ${JSON.stringify(event)}\n\n`)
@@ -155,6 +199,7 @@ export const streamChat: AppMiddleware = async ctx => {
   }
 
   const response = ctx.res
+  const requestId = randomUUID()
   ctx.respond = false
   response.statusCode = 200
   response.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
@@ -162,10 +207,12 @@ export const streamChat: AppMiddleware = async ctx => {
   response.setHeader('Connection', 'keep-alive')
   response.setHeader('Access-Control-Allow-Origin', ctx.header.origin || '*')
   response.flushHeaders()
+  writeEvent(response, { type: 'meta', request_id: requestId })
 
   void runAndRecord(
     ctx,
     messages,
+    requestId,
     content => writeEvent(response, { type: 'delta', content }),
     () => writeEvent(response, { type: 'reset' })
   )

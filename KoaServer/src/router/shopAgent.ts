@@ -48,5 +48,7 @@ router.post(
   agentEventRateLimit,
   shopAgentController.trackProductClick
 )
+router.post('/feedback', agentEventRateLimit, shopAgentController.feedback)
+router.post('/feedback-auth', userAuth, agentEventRateLimit, shopAgentController.feedback)
 
 export default router

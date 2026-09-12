@@ -54,6 +54,12 @@ const routers: RouteRecordRaw[] = [
           meta: { title: '违规处置与审核记录' }
         },
         {
+          path: '/agent-operations',
+          name: 'agent-operations',
+          component: () => import('../pages/subpages/AgentOperations.vue'),
+          meta: { title: '智能体运营' }
+        },
+        {
           path: '/setting',
           name: 'setting',
           component: () => import('../pages/subpages/Setting.vue'),

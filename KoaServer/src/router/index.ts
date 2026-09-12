@@ -19,6 +19,7 @@ import notificationRouter from './notification'
 import moderationRouter from './moderation'
 import governanceRouter from './governance'
 import shopAgentRouter from './shopAgent'
+import agentOperationsRouter from './agentOperations'
 
 const router = new Router<AppState>()
 
@@ -74,5 +75,7 @@ router.use(governanceRouter.allowedMethods())
 //挂载商家智能客服路由
 router.use(shopAgentRouter.routes())
 router.use(shopAgentRouter.allowedMethods())
+router.use(agentOperationsRouter.routes())
+router.use(agentOperationsRouter.allowedMethods())
 
 export default router

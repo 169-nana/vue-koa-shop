@@ -65,6 +65,8 @@ export async function searchAgentKnowledge(
         SELECT title, category, content
         FROM vueshop_agent_knowledge
         WHERE enabled = 1
+          AND (valid_from IS NULL OR valid_from <= NOW())
+          AND (valid_until IS NULL OR valid_until > NOW())
           AND (title LIKE ? OR keywords LIKE ? OR content LIKE ?)
         ORDER BY sort_order ASC, id ASC
         LIMIT 5
