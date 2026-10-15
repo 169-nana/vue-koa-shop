@@ -90,7 +90,7 @@ export const create: AppMiddleware<CreateOrderResult> = async ctx => {
 export const list: AppMiddleware<OrderSummary[]> = async ctx => {
   const user = requireUser(ctx)
   const rawStatus = ctx.query.status
-  const allowedStatuses: OrderStatus[] = ['pending', 'paid', 'cancelled', 'shipped', 'completed']
+  const allowedStatuses: OrderStatus[] = ['pending', 'paid', 'cancelled', 'shipped', 'completed', 'refunded']
   const status = typeof rawStatus === 'string'
     ? allowedStatuses.find(item => item === rawStatus)
     : undefined
@@ -136,4 +136,12 @@ export const cancel: AppMiddleware<null> = async ctx => {
     }
     throw error
   }
+}
+
+export const confirmReceipt: AppMiddleware<null> = async ctx => {
+  const user = requireUser(ctx)
+  const orderId = Number(getBody(ctx.request.body).order_id)
+  if (!Number.isInteger(orderId) || orderId <= 0) { ctx.body = fail('订单ID不正确'); return }
+  try { await orderService.confirmReceipt(user.id, orderId); ctx.body = success() }
+  catch (error) { const message = getBusinessMessage(error); if (message) { ctx.body = fail(message); return }; throw error }
 }

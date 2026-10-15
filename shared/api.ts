@@ -70,6 +70,35 @@ export interface ShopAgentMessage {
 
 export interface ShopAgentChatInput {
   messages: ShopAgentMessage[]
+  conversation_id?: number
+}
+
+export interface ShopAgentConversation {
+  id: number
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ShopAgentConversationInput {
+  title?: string
+}
+
+export interface ShopAgentConversationDeleteInput {
+  id: number
+}
+
+export interface ShopAgentHistoryMessage extends ShopAgentMessage {
+  id: number
+  request_id: string
+  created_at: string
+  action?: ShopAgentHistoryAction
+}
+
+export interface ShopAgentHistoryPage {
+  list: ShopAgentHistoryMessage[]
+  hasMore: boolean
+  nextBeforeId: number | null
 }
 
 export interface ShopAgentReply {
@@ -79,21 +108,65 @@ export interface ShopAgentReply {
   request_id?: string
 }
 
-export interface ShopAgentPendingAction {
-  type: 'add_to_cart'
+interface ShopAgentPendingActionBase {
   token: string
   title: string
   description: string
   expires_at: string
 }
+export type ShopAgentActionStatus =
+  | 'prepared'
+  | 'executing'
+  | 'succeeded'
+  | 'failed'
+  | 'expired'
+
+export interface ShopAgentHistoryAction {
+  type: ShopAgentPendingAction['type']
+  status: ShopAgentActionStatus
+  title: string
+  description: string
+  expires_at: string
+  token?: string
+}
+export interface ShopAgentCartPendingAction extends ShopAgentPendingActionBase {
+  type: 'add_to_cart'
+}
+export interface ShopAgentAfterSalePendingAction extends ShopAgentPendingActionBase {
+  type: 'apply_after_sale'
+}
+export interface ShopAgentSupportPendingAction extends ShopAgentPendingActionBase {
+  type: 'create_support_ticket'
+}
+export type ShopAgentPendingAction =
+  | ShopAgentCartPendingAction
+  | ShopAgentAfterSalePendingAction
+  | ShopAgentSupportPendingAction
 
 export interface ShopAgentActionInput {
   token: string
 }
 
+export interface ShopAgentCancelInput {
+  request_id: string
+}
+
+export interface ShopAgentCancelResult {
+  cancelled: boolean
+}
+
 export interface ShopAgentActionResult {
   message: string
   cart_path: '/cart'
+}
+export interface ShopAgentAfterSaleActionResult {
+  message: string
+  application_id: number
+  after_sale_path: '/after-sales'
+}
+export interface ShopAgentSupportActionResult {
+  message: string
+  ticket_id: number
 }
 
 export type ShopAgentStreamEvent =
@@ -159,6 +232,10 @@ export interface AgentMetrics {
   product_clicks: number
   prepared_actions: number
   added_to_cart: number
+  after_sale_consultations: number
+  after_sale_prepared: number
+  after_sale_submitted: number
+  support_tickets: number
   helpful: number
   unhelpful: number
   daily: AgentMetricPoint[]
@@ -250,6 +327,9 @@ export type OrderStatus =
   | 'cancelled'
   | 'shipped'
   | 'completed'
+  | 'refunded'
+
+export type PaymentStatus = 'pending' | 'succeeded' | 'closed' | 'failed' | 'refunded'
 
 export interface CreateOrderInput {
   cart_item_ids?: number[]
@@ -281,6 +361,7 @@ export interface UserAddress extends AddressInput {
 export interface CreateOrderResult {
   id: number
   order_no: string
+  payment_expires_at: string
 }
 
 export interface OrderItem {
@@ -292,6 +373,12 @@ export interface OrderItem {
   unit_price: number
   quantity: number
   subtotal: number
+  merchant_id: number | null
+  merchant_name: string | null
+  fulfillment_status: 'pending' | 'shipped'
+  shipping_carrier: string
+  tracking_no: string
+  shipped_at: string | null
 }
 
 export interface OrderSummary {
@@ -301,12 +388,43 @@ export interface OrderSummary {
   total_amount: number
   receiver_name: string
   created_at: string
+  payment_expires_at: string | null
+  paid_at: string | null
+  shipped_at: string | null
+  completed_at: string | null
 }
 
 export interface OrderDetail extends OrderSummary {
   receiver_phone: string
   receiver_address: string
   items: OrderItem[]
+}
+
+export interface PaymentOrder {
+  payment_no: string
+  order_id: number
+  order_no: string
+  provider: 'mock'
+  amount: number
+  status: PaymentStatus
+  expires_at: string
+  paid_at: string | null
+}
+
+export interface CreatePaymentInput { order_id: number }
+export interface MockPaymentInput { payment_no: string }
+export interface ConfirmReceiptInput { order_id: number }
+
+export interface MerchantOrder extends OrderSummary {
+  receiver_phone: string
+  receiver_address: string
+  items: OrderItem[]
+}
+
+export interface ShipMerchantOrderInput {
+  order_id: number
+  shipping_carrier: string
+  tracking_no: string
 }
 
 export interface UserDashboard {
@@ -317,6 +435,7 @@ export interface UserDashboard {
 }
 
 export type RefundStatus = 'pending' | 'approved' | 'rejected'
+export type AfterSaleRequestType = 'refund_only' | 'return_refund'
 
 export interface CreateRefundInput {
   order_id: number
@@ -330,7 +449,61 @@ export interface RefundApplication {
   refund_amount: number
   reason: string
   status: RefundStatus
+  request_type: AfterSaleRequestType
+  order_item_id: number | null
+  goods_name: string | null
+  quantity: number | null
+  source: 'manual' | 'agent'
+  review_note: string
+  reviewed_at: string | null
   created_at: string
+}
+
+export interface AgentAfterSaleEligibilityItem {
+  order_item_id: number
+  goods_name: string
+  goods_spec: string
+  purchased_quantity: number
+  requested_quantity: number
+  max_refund_amount: number
+}
+export interface AgentAfterSaleEligibility {
+  eligible: boolean
+  reason: string
+  order_id: number
+  order_no: string
+  order_status: OrderStatus
+  item: AgentAfterSaleEligibilityItem | null
+}
+export interface AdminAfterSaleApplication extends RefundApplication {
+  username: string
+  handler_name: string | null
+}
+export interface AfterSaleDecisionInput {
+  id: number
+  decision: 'approved' | 'rejected'
+  note: string
+}
+
+export type AgentSupportTicketStatus = 'open' | 'in_progress' | 'resolved'
+export interface AgentSupportTicket {
+  id: number
+  user_id: number
+  username: string
+  order_id: number | null
+  order_no: string | null
+  subject: string
+  summary: string
+  status: AgentSupportTicketStatus
+  handler_name: string | null
+  resolution: string
+  created_at: string
+  updated_at: string
+}
+export interface AgentSupportTicketDecisionInput {
+  id: number
+  status: Exclude<AgentSupportTicketStatus, 'open'>
+  resolution: string
 }
 
 export interface ReviewableItem {

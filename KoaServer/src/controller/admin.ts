@@ -1,4 +1,4 @@
-import type { AdminAccount, InsertResult, LoginResult, PublicAdmin, UpdateAdminAccountInput } from '../../../shared/api'
+import type { AdminAccount, InsertResult, LoginResult, MerchantOrder, OrderStatus, PublicAdmin, ShipMerchantOrderInput, UpdateAdminAccountInput } from '../../../shared/api'
 import { requireAdmin } from '../utils/identity'
 import type { AppMiddleware } from '../types'
 import { getBody, hasErrorCode } from '../utils/input'
@@ -13,6 +13,7 @@ import bcrypt from 'bcryptjs'
 
 import config from '../config/index'
 import * as adminService from '../service/admin'
+import * as merchantService from '../service/merchant'
 
 //POST /admin/login 登录处理  发送token给客户端，客户端存储在localStorage中，后续请求携带token
 export const login: AppMiddleware<LoginResult> = async ctx => {
@@ -214,4 +215,25 @@ export const updateAccount: AppMiddleware<UpdateAdminAccountInput> = async ctx =
   if (id === requireAdmin(ctx).id) { ctx.body = fail('不能修改当前登录账号的角色或状态'); return }
   if (!await adminService.updateAccount(id, role, status as 0 | 1)) { ctx.body = fail('后台账号不存在'); return }
   ctx.body = success({ id, role, status: status as 0 | 1 })
+}
+
+export const platformOrders: AppMiddleware<MerchantOrder[]> = async ctx => {
+  const raw = ctx.query.status
+  const statuses: OrderStatus[] = ['pending', 'paid', 'cancelled', 'shipped', 'completed', 'refunded']
+  const status = typeof raw === 'string' ? statuses.find(item => item === raw) : undefined
+  if (raw !== undefined && !status) { ctx.body = fail('订单状态不正确'); return }
+  ctx.body = success(await merchantService.listOrders(null, status))
+}
+
+export const shipPlatformOrder: AppMiddleware<null> = async ctx => {
+  const body = getBody(ctx.request.body)
+  const orderId = Number(body.order_id)
+  const shippingCarrier = typeof body.shipping_carrier === 'string' ? body.shipping_carrier.trim() : ''
+  const trackingNo = typeof body.tracking_no === 'string' ? body.tracking_no.trim() : ''
+  if (!Number.isInteger(orderId) || orderId <= 0 || shippingCarrier.length < 2 || shippingCarrier.length > 100 || !/^[a-zA-Z0-9-]{4,100}$/.test(trackingNo)) {
+    ctx.body = fail('发货参数不正确'); return
+  }
+  const input: ShipMerchantOrderInput = { order_id: orderId, shipping_carrier: shippingCarrier, tracking_no: trackingNo }
+  try { await merchantService.shipOrder(null, input); ctx.body = success() }
+  catch (error) { if (error instanceof Error) { ctx.body = fail(error.message); return }; throw error }
 }

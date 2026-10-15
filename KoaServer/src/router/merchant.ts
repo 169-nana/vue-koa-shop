@@ -19,6 +19,8 @@ router.post('/goods/submission/submit', userAuth, merchantAuth, merchantControll
 router.get('/goods/list', userAuth, merchantAuth, merchantController.listGoods)
 router.post('/goods/stock', userAuth, merchantAuth, merchantController.updateStock)
 router.post('/goods/sale-status', userAuth, merchantAuth, merchantController.updateSaleStatus)
+router.get('/orders', userAuth, merchantAuth, merchantController.listOrders)
+router.post('/orders/ship', userAuth, merchantAuth, merchantController.shipOrder)
 router.post('/upload/picture', userAuth, merchantAuth, uploadPicture, uploadController.picture)
 
 export default router

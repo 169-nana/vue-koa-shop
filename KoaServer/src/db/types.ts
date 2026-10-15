@@ -58,6 +58,8 @@ export type OrderCheckoutRow =
     unit_price: string
     quantity: number
     stock: number
+    merchant_id: number | null
+    merchant_name: string | null
   }
 
 export type AddressRow = RowDataPacket & Omit<UserAddress, 'is_default'> & {
@@ -103,6 +105,10 @@ export type OrderRow =
     receiver_phone: string
     receiver_address: string
     created_at: Date | string
+    payment_expires_at: Date | string | null
+    paid_at: Date | string | null
+    shipped_at: Date | string | null
+    completed_at: Date | string | null
   }
 
 export type OrderItemRow =
@@ -111,6 +117,12 @@ export type OrderItemRow =
     order_id: number
     unit_price: string
     subtotal: string
+    merchant_id: number | null
+    merchant_name: string | null
+    fulfillment_status: string
+    shipping_carrier: string
+    tracking_no: string
+    shipped_at: Date | string | null
   }
 
 export type UserRow = RowDataPacket & PublicUser & { status: number }

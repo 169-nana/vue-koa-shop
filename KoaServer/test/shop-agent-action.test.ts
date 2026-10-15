@@ -44,7 +44,9 @@ test('智能加购必须先准备确认，再以一次性动作执行现有购�
   })
   context.mock.method(db, 'execute', async (sql: string, values?: unknown[]) => {
     if (sql.includes('INSERT INTO vueshop_agent_action')) {
-      storedPayload = String(values?.[2] ?? '')
+      assert.equal(values?.[2], 42)
+      assert.equal(values?.[3], 'request-1')
+      storedPayload = String(values?.[4] ?? '')
       events.push('prepared')
       return [{ affectedRows: 1 }, []]
     }
@@ -66,7 +68,10 @@ test('智能加购必须先准备确认，再以一次性动作执行现有购�
     throw new Error(`unexpected SQL: ${sql}`)
   })
 
-  const pending = await prepareAddToCart(7, 16, 2, 'red')
+  const pending = await prepareAddToCart(7, 16, 2, 'red', {
+    conversationId: 42,
+    requestId: 'request-1'
+  })
   assert.match(pending.title, /测试耳机/)
   assert.match(pending.description, /red.*2/)
 

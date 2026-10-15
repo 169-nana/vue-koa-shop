@@ -20,5 +20,7 @@ router.post('/admin/changeAvatar', auth, controller.changeAvatar)
 router.get('/accounts/list', auth, adminOnly, controller.listAccounts)
 router.post('/accounts/add', auth, adminOnly, controller.createAccount)
 router.post('/accounts/update', auth, adminOnly, controller.updateAccount)
+router.get('/orders/list', auth, adminOnly, controller.platformOrders)
+router.post('/orders/ship', auth, adminOnly, controller.shipPlatformOrder)
 
 export default router

@@ -9,13 +9,18 @@
   "scripts": {
     "start": "node dist/KoaServer/app.js",
     "prestart": "npm run build",
-    "dev": "tsx watch app.ts",
+    "dev": "node scripts/run-tsx.cjs watch app.ts",
     "check": "npm run typecheck",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "build": "tsc -p tsconfig.json",
-    "reset-admin-password": "tsx scripts/reset-admin-password.ts",
-    "eval:agent": "tsx scripts/evaluate-shop-agent.ts",
-    "test": "tsx --test test/*.test.ts"
+    "reset-admin-password": "node scripts/run-tsx.cjs scripts/reset-admin-password.ts",
+    "migrate": "node scripts/run-tsx.cjs scripts/migrate.ts",
+    "init-admin": "node scripts/run-tsx.cjs scripts/init-admin.ts",
+    "maintain-orders": "node scripts/run-tsx.cjs scripts/maintain-orders.ts",
+    "check-schema": "node scripts/run-tsx.cjs scripts/check-schema.ts",
+    "backup-phase1": "node scripts/run-tsx.cjs scripts/backup-phase1-tables.ts",
+    "eval:agent": "node scripts/run-tsx.cjs scripts/evaluate-shop-agent.ts",
+    "test": "node scripts/run-tests.cjs"
   },
   "dependencies": {
     "@koa/cors": "^5.0.0",

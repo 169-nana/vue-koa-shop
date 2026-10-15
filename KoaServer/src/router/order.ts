@@ -10,5 +10,6 @@ router.post('/create', userAuth, orderController.create)
 router.get('/list', userAuth, orderController.list)
 router.get('/detail', userAuth, orderController.detail)
 router.post('/cancel', userAuth, orderController.cancel)
+router.post('/confirm-receipt', userAuth, orderController.confirmReceipt)
 
 export default router

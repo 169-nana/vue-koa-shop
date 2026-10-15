@@ -3,8 +3,13 @@ import { randomUUID } from 'node:crypto'
 
 import type {
   ShopAgentMessage,
+  ShopAgentCancelResult,
   ShopAgentActionResult,
+  ShopAgentAfterSaleActionResult,
+  ShopAgentConversation,
+  ShopAgentSupportActionResult,
   AgentFeedbackInput,
+  ShopAgentHistoryPage,
   ShopAgentReply,
   ShopAgentStreamEvent
 } from '../../../shared/api'
@@ -14,6 +19,26 @@ import type { AppContext, AppMiddleware } from '../types'
 import { parseAgentMessages } from '../agent/validation'
 import { recordAgentCall, recordAgentConversion } from '../service/agentObservability'
 import { executeAddToCart } from '../service/agentCartAction'
+import { executeAfterSale } from '../service/agentAfterSaleAction'
+import { executeSupportTicket } from '../service/agentSupportTicket'
+import {
+  clearAgentChatHistory,
+  getAgentChatHistory,
+  saveAgentExchange
+} from '../service/agentChatHistory'
+import {
+  createAgentConversation,
+  deleteAgentConversation,
+  getAgentConversationContext,
+  listAgentConversations,
+  referencedProducts,
+  type AgentConversationState
+} from '../service/agentConversation'
+import {
+  cancelAgentRequest,
+  registerAgentRequest,
+  unregisterAgentRequest
+} from '../service/agentRequestRuntime'
 import { saveFeedback } from '../service/agentOperations'
 import { runShopAgent } from '../service/shopAgent'
 import { AppError, getBody } from '../utils/input'
@@ -39,8 +64,11 @@ async function runAndRecord(
   ctx: AppContext,
   messages: ShopAgentMessage[],
   requestId: string,
+  conversationId?: number,
+  conversationContext?: AgentConversationState,
   onDelta?: (content: string) => void,
-  onReset?: () => void
+  onReset?: () => void,
+  signal?: AbortSignal
 ): Promise<ShopAgentReply> {
   const startedAt = Date.now()
 
@@ -49,7 +77,10 @@ async function runAndRecord(
       messages,
       ctx.state.user?.id,
       onDelta,
-      onReset
+      onReset,
+      undefined,
+      conversationContext,
+      { conversationId, requestId, signal }
     )
     const reply: ShopAgentReply = {
       message: result.message,
@@ -70,6 +101,25 @@ async function runAndRecord(
       toolNames: result.toolNames,
       recommendedProducts: result.products.length
     })
+    const latestMessage = messages[messages.length - 1]
+    if (ctx.state.user && conversationId && latestMessage?.role === 'user') {
+      try {
+        await saveAgentExchange(
+          ctx.state.user.id,
+          conversationId,
+          requestId,
+          latestMessage.content,
+          reply.message,
+          referencedProducts(reply.products),
+          conversationContext?.revision ?? 1
+        )
+      } catch (error: unknown) {
+        console.warn(
+          'Agent chat history unavailable:',
+          error instanceof Error ? error.message : 'Unknown error'
+        )
+      }
+    }
     return reply
   } catch (error: unknown) {
     await recordAgentCall({
@@ -90,6 +140,33 @@ async function runAndRecord(
   }
 }
 
+function bodyConversationId(value: unknown): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : null
+}
+
+async function resolveConversation(
+  ctx: AppContext
+): Promise<{ id: number; context: AgentConversationState } | null> {
+  if (!ctx.state.user) return null
+  const requested = getBody(ctx.request.body).conversation_id
+  if (requested === undefined) {
+    const existing = (await listAgentConversations(ctx.state.user.id))[0]
+    const conversation = existing ?? await createAgentConversation(ctx.state.user.id)
+    return {
+      id: conversation.id,
+      context: await getAgentConversationContext(ctx.state.user.id, conversation.id)
+    }
+  }
+  const conversationId = bodyConversationId(requested)
+  if (conversationId === null) {
+    throw new AppError('对话编号不正确', 'AGENT_CONVERSATION_INVALID')
+  }
+  return {
+    id: conversationId,
+    context: await getAgentConversationContext(ctx.state.user.id, conversationId)
+  }
+}
+
 export const chat: AppMiddleware<ShopAgentReply> = async ctx => {
   const messages = parseMessages(ctx)
 
@@ -99,7 +176,14 @@ export const chat: AppMiddleware<ShopAgentReply> = async ctx => {
   }
 
   try {
-    ctx.body = success(await runAndRecord(ctx, messages, randomUUID()))
+    const conversation = await resolveConversation(ctx)
+    ctx.body = success(await runAndRecord(
+      ctx,
+      messages,
+      randomUUID(),
+      conversation?.id,
+      conversation?.context
+    ))
   } catch (error: unknown) {
     if (error instanceof AppError) {
       ctx.body = fail(error.message)
@@ -125,6 +209,35 @@ export const confirmAddToCart: AppMiddleware<ShopAgentActionResult> = async ctx 
       ctx.body = fail(error.message)
       return
     }
+    throw error
+  }
+}
+
+function actionToken(value: unknown): string | null {
+  const token = getBody(value).token
+  return typeof token === 'string' && token.trim() && token.length <= 2000
+    ? token.trim()
+    : null
+}
+
+export const confirmAfterSale: AppMiddleware<ShopAgentAfterSaleActionResult> = async ctx => {
+  const token = actionToken(ctx.request.body)
+  if (!token) { ctx.body = fail('确认凭证不正确'); return }
+  try {
+    ctx.body = success(await executeAfterSale(requireUser(ctx).id, token))
+  } catch (error: unknown) {
+    if (error instanceof AppError) { ctx.body = fail(error.message); return }
+    throw error
+  }
+}
+
+export const confirmSupportTicket: AppMiddleware<ShopAgentSupportActionResult> = async ctx => {
+  const token = actionToken(ctx.request.body)
+  if (!token) { ctx.body = fail('确认凭证不正确'); return }
+  try {
+    ctx.body = success(await executeSupportTicket(requireUser(ctx).id, token))
+  } catch (error: unknown) {
+    if (error instanceof AppError) { ctx.body = fail(error.message); return }
     throw error
   }
 }
@@ -173,6 +286,78 @@ export const feedback: AppMiddleware<null> = async ctx => {
   }
 }
 
+function positiveInteger(value: unknown): number | null {
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) return null
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+export const history: AppMiddleware<ShopAgentHistoryPage> = async ctx => {
+  const conversationValue = ctx.query.conversation_id
+  const beforeValue = ctx.query.before_id
+  const pageSizeValue = ctx.query.pagesize
+  const beforeId = beforeValue === undefined ? null : positiveInteger(beforeValue)
+  const conversationId = positiveInteger(conversationValue)
+  const requestedPageSize = pageSizeValue === undefined ? 20 : positiveInteger(pageSizeValue)
+
+  if (conversationId === null || (beforeValue !== undefined && beforeId === null) || requestedPageSize === null) {
+    ctx.body = fail('聊天记录分页参数不正确')
+    return
+  }
+
+  ctx.body = success(await getAgentChatHistory(
+    requireUser(ctx).id,
+    conversationId,
+    beforeId,
+    Math.min(requestedPageSize, 30)
+  ))
+}
+
+export const clearHistory: AppMiddleware<null> = async ctx => {
+  const conversationId = bodyConversationId(getBody(ctx.request.body).conversation_id)
+  if (conversationId === null) { ctx.body = fail('对话编号不正确'); return }
+  await getAgentConversationContext(requireUser(ctx).id, conversationId)
+  await clearAgentChatHistory(requireUser(ctx).id, conversationId)
+  ctx.body = success()
+}
+
+export const cancelRequest: AppMiddleware<ShopAgentCancelResult> = async ctx => {
+  const requestId = getBody(ctx.request.body).request_id
+  if (typeof requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(requestId)) {
+    ctx.body = fail('请求编号不正确')
+    return
+  }
+  ctx.body = success({ cancelled: cancelAgentRequest(requestId, requireUser(ctx).id) })
+}
+
+export const conversations: AppMiddleware<ShopAgentConversation[]> = async ctx => {
+  ctx.body = success(await listAgentConversations(requireUser(ctx).id))
+}
+
+export const createConversation: AppMiddleware<ShopAgentConversation> = async ctx => {
+  const titleValue = getBody(ctx.request.body).title
+  if (titleValue !== undefined && (typeof titleValue !== 'string' || titleValue.trim().length > 60)) {
+    ctx.body = fail('对话标题不正确')
+    return
+  }
+  ctx.body = success(await createAgentConversation(
+    requireUser(ctx).id,
+    typeof titleValue === 'string' ? titleValue : undefined
+  ))
+}
+
+export const deleteConversation: AppMiddleware<null> = async ctx => {
+  const conversationId = bodyConversationId(getBody(ctx.request.body).id)
+  if (conversationId === null) { ctx.body = fail('对话编号不正确'); return }
+  try {
+    await deleteAgentConversation(requireUser(ctx).id, conversationId)
+    ctx.body = success()
+  } catch (error: unknown) {
+    if (error instanceof AppError) { ctx.body = fail(error.message); return }
+    throw error
+  }
+}
+
 function writeEvent(response: ServerResponse, event: ShopAgentStreamEvent): void {
   if (!response.destroyed && !response.writableEnded) {
     response.write(`data: ${JSON.stringify(event)}\n\n`)
@@ -198,6 +383,14 @@ export const streamChat: AppMiddleware = async ctx => {
     return
   }
 
+  let conversation: Awaited<ReturnType<typeof resolveConversation>>
+  try {
+    conversation = await resolveConversation(ctx)
+  } catch (error: unknown) {
+    if (error instanceof AppError) { ctx.body = fail(error.message); return }
+    throw error
+  }
+
   const response = ctx.res
   const requestId = randomUUID()
   ctx.respond = false
@@ -209,12 +402,21 @@ export const streamChat: AppMiddleware = async ctx => {
   response.flushHeaders()
   writeEvent(response, { type: 'meta', request_id: requestId })
 
+  const controller = ctx.state.user
+    ? registerAgentRequest(requestId, ctx.state.user.id)
+    : new AbortController()
+  const abortOnDisconnect = (): void => controller.abort()
+  response.once('close', abortOnDisconnect)
+
   void runAndRecord(
     ctx,
     messages,
     requestId,
+    conversation?.id,
+    conversation?.context,
     content => writeEvent(response, { type: 'delta', content }),
-    () => writeEvent(response, { type: 'reset' })
+    () => writeEvent(response, { type: 'reset' }),
+    controller.signal
   )
     .then(reply => writeReply(response, reply))
     .catch((error: unknown) => {
@@ -224,6 +426,10 @@ export const streamChat: AppMiddleware = async ctx => {
           ? error.message
           : '智能助手暂时不可用，请稍后重试'
       })
-      response.end()
+      if (!response.writableEnded) response.end()
+    })
+    .finally(() => {
+      response.off('close', abortOnDisconnect)
+      unregisterAgentRequest(requestId)
     })
 }

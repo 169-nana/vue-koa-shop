@@ -49,7 +49,7 @@ onMounted(load)
       <aside>
         <p>店铺运营</p>
         <RouterLink :to="{ name: 'merchant-overview', params: { merchantId } }"><span>⌂</span>工作台</RouterLink>
-        <template v-if="currentShop.status === 'approved'"><RouterLink :to="{ name: 'merchant-products', params: { merchantId } }"><span>□</span>商品管理</RouterLink><RouterLink :to="{ name: 'merchant-product-new', params: { merchantId } }"><span>＋</span>发布商品</RouterLink><RouterLink :to="{ name: 'merchant-submissions', params: { merchantId } }"><span>✓</span>发布记录</RouterLink></template>
+        <template v-if="currentShop.status === 'approved'"><RouterLink :to="{ name: 'merchant-orders', params: { merchantId } }"><span>▤</span>订单履约</RouterLink><RouterLink :to="{ name: 'merchant-products', params: { merchantId } }"><span>□</span>商品管理</RouterLink><RouterLink :to="{ name: 'merchant-product-new', params: { merchantId } }"><span>＋</span>发布商品</RouterLink><RouterLink :to="{ name: 'merchant-submissions', params: { merchantId } }"><span>✓</span>发布记录</RouterLink></template>
         <span v-else class="operation-locked">店铺已受限，经营功能暂停</span>
         <p>店铺与账户</p>
         <RouterLink :to="{ name: 'merchant-stores', params: { merchantId } }"><span>◇</span>店铺管理</RouterLink>

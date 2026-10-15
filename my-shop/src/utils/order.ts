@@ -5,7 +5,8 @@ const labels: Record<OrderStatus, string> = {
   paid: '待发货',
   cancelled: '已取消',
   shipped: '已发货',
-  completed: '已完成'
+  completed: '已完成',
+  refunded: '已退款'
 }
 
 export const getOrderStatusText = (status: OrderStatus) => labels[status]

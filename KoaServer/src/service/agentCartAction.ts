@@ -16,6 +16,7 @@ import * as addressService from './address'
 import * as cartService from './cart'
 import * as goodsService from './goods'
 import { recordAgentConversion } from './agentObservability'
+import { signAgentActionToken, type AgentActionContext } from './agentActionToken'
 
 const ACTION_ISSUER = 'vueshop-agent'
 const ACTION_AUDIENCE = 'vueshop-agent-action'
@@ -82,7 +83,8 @@ export async function prepareAddToCart(
   userId: number,
   goodsId: number,
   quantity: number,
-  requestedSpec?: string
+  requestedSpec?: string,
+  actionContext?: AgentActionContext
 ): Promise<ShopAgentPendingAction> {
   const product = await goodsService.findPublicById(goodsId)
   if (!product) throw new AppError('商品不存在或当前不可售', 'GOODS_NOT_FOUND')
@@ -109,25 +111,23 @@ export async function prepareAddToCart(
     selectedSpec,
     addressId: address.id
   }
+  const title = `将“${product.name}”加入购物车`
+  const description = `规格：${selectedSpec}，数量：${quantity}，单价：¥${product.price.toFixed(2)}`
 
   await db.execute(
     `
       INSERT INTO vueshop_agent_action (
-        id, user_id, action_type, payload, expires_at
-      ) VALUES (?, ?, 'add_to_cart', ?, ?)
+        id, user_id, conversation_id, request_id, action_type, payload,
+        title, description, expires_at
+      ) VALUES (?, ?, ?, ?, 'add_to_cart', ?, ?, ?, ?)
     `,
-    [actionId, userId, JSON.stringify(payload), expiresAt]
+    [
+      actionId, userId, actionContext?.conversationId ?? null,
+      actionContext?.requestId ?? null, JSON.stringify(payload), title, description, expiresAt
+    ]
   )
 
-  const token = jwt.sign(
-    { type: 'agent_cart_action', userId, actionId },
-    config.jwtSecret,
-    {
-      expiresIn: ACTION_TTL_SECONDS,
-      issuer: ACTION_ISSUER,
-      audience: ACTION_AUDIENCE
-    }
-  )
+  const token = signAgentActionToken('add_to_cart', userId, actionId, expiresAt)
 
   void recordAgentConversion({
     userId,
@@ -140,8 +140,8 @@ export async function prepareAddToCart(
   return {
     type: 'add_to_cart',
     token,
-    title: `将“${product.name}”加入购物车`,
-    description: `规格：${selectedSpec}，数量：${quantity}，单价：¥${product.price.toFixed(2)}`,
+    title,
+    description,
     expires_at: expiresAt.toISOString()
   }
 }

@@ -6,12 +6,17 @@ import type {
   AgentKnowledgeRecord,
   AgentMetrics,
   AgentPromptVersion,
+  AdminAfterSaleApplication,
+  AgentSupportTicket,
+  RefundStatus,
   InsertResult
 } from '../../../shared/api'
 
 import type { AppMiddleware } from '../types'
 
 import * as operations from '../service/agentOperations'
+import * as refundService from '../service/refund'
+import * as supportService from '../service/agentSupportTicket'
 import { requireAdmin } from '../utils/identity'
 import { AppError, getBody } from '../utils/input'
 import { fail, success } from '../utils/response'
@@ -186,4 +191,54 @@ export const evalRun: AppMiddleware<AgentEvalRunResult> = async ctx => {
   const id = positiveId(getBody(ctx.request.body).prompt_version_id)
   if (!id) { ctx.body = fail('Prompt 版本ID不正确'); return }
   await respond(ctx, () => operations.runEvaluation(id, requireAdmin(ctx).id))
+}
+
+export const afterSaleList: AppMiddleware<AdminAfterSaleApplication[]> = async ctx => {
+  const raw = ctx.query.status
+  const status: RefundStatus | undefined = raw === undefined || raw === ''
+    ? undefined
+    : raw === 'pending' || raw === 'approved' || raw === 'rejected'
+      ? raw
+      : undefined
+  if (raw !== undefined && raw !== '' && status === undefined) {
+    ctx.body = fail('售后状态不正确')
+    return
+  }
+  ctx.body = success(await refundService.listForAdmin(status))
+}
+
+export const afterSaleDecision: AppMiddleware<null> = async ctx => {
+  const body = getBody(ctx.request.body)
+  const id = positiveId(body.id)
+  const decision = body.decision
+  const note = typeof body.note === 'string' ? body.note.trim() : ''
+  if (!id || (decision !== 'approved' && decision !== 'rejected') ||
+    note.length < 2 || note.length > 500) {
+    ctx.body = fail('售后处理参数不正确，处理说明应为2到500个字符')
+    return
+  }
+  await respond(ctx, async () => {
+    await refundService.decide(id, requireAdmin(ctx).id, { id, decision, note })
+    return null
+  })
+}
+
+export const supportTicketList: AppMiddleware<AgentSupportTicket[]> = async ctx => {
+  ctx.body = success(await supportService.listTickets())
+}
+
+export const supportTicketUpdate: AppMiddleware<null> = async ctx => {
+  const body = getBody(ctx.request.body)
+  const id = positiveId(body.id)
+  const status = body.status
+  const resolution = typeof body.resolution === 'string' ? body.resolution.trim() : ''
+  if (!id || (status !== 'in_progress' && status !== 'resolved') ||
+    resolution.length > 500 || (status === 'resolved' && resolution.length < 2)) {
+    ctx.body = fail('工单处理参数不正确，解决说明最多500个字符且完成时必填')
+    return
+  }
+  await respond(ctx, async () => {
+    await supportService.updateTicket(requireAdmin(ctx).id, { id, status, resolution })
+    return null
+  })
 }

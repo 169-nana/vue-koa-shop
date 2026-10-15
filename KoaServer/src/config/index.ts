@@ -12,11 +12,18 @@ dotenv.config({
 //
 const jwtSecret = process.env.JWT_SECRET
 if (!jwtSecret) throw new Error('请在 KoaServer/.env 中配置 JWT_SECRET')
+const isProduction = process.env.NODE_ENV === 'production'
+if (isProduction && !process.env.PAYMENT_CALLBACK_SECRET) {
+  throw new Error('生产环境必须配置 PAYMENT_CALLBACK_SECRET')
+}
+const paymentCallbackSecret = process.env.PAYMENT_CALLBACK_SECRET || jwtSecret
 export default {
   // 端口号配置
   port: Number(process.env.PORT) || 8360,
 
   jwtSecret,
+  paymentCallbackSecret,
+  isProduction,
   // 环境变量的时长格式仍由 jsonwebtoken 校验，保持既有解析规则。
   jwtExpiresIn: (process.env.JWT_EXPIRES_IN || '2h') as NonNullable<SignOptions['expiresIn']>,
 

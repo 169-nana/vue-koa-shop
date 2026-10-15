@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import type { OrderDetail } from '../../../shared/api'
-import { cancelOrder, createRefund, getOrderDetail } from '../api'
+import { cancelOrder, confirmReceipt, createPayment, createRefund, getOrderDetail, mockPay } from '../api'
 import { toAssetURL } from '../config'
 import { formatOrderTime, getOrderStatusText } from '../utils/order'
 
@@ -15,6 +15,8 @@ const refundReason = ref('')
 const refunding = ref(false)
 const refundSubmitted = ref(false)
 const errorMessage = ref('')
+const paying = ref(false)
+const confirming = ref(false)
 
 async function loadOrder() {
   const id = Number(route.params.id)
@@ -68,6 +70,25 @@ async function submitRefund() {
   }
 }
 
+async function pay() {
+  if (!order.value || paying.value) return
+  paying.value = true; errorMessage.value = ''
+  try {
+    const payment = await createPayment(order.value.id)
+    await mockPay(payment.payment_no)
+    await loadOrder()
+  } catch (error) { errorMessage.value = error instanceof Error ? error.message : '支付失败' }
+  finally { paying.value = false }
+}
+
+async function receive() {
+  if (!order.value || confirming.value) return
+  confirming.value = true; errorMessage.value = ''
+  try { await confirmReceipt(order.value.id); order.value.status = 'completed'; order.value.completed_at = new Date().toISOString() }
+  catch (error) { errorMessage.value = error instanceof Error ? error.message : '确认收货失败' }
+  finally { confirming.value = false }
+}
+
 onMounted(loadOrder)
 </script>
 
@@ -83,9 +104,11 @@ onMounted(loadOrder)
         <div><small>订单号</small><p>{{ order.order_no }}</p></div><div><small>下单时间</small><p>{{ formatOrderTime(order.created_at) }}</p></div><div><small>订单金额</small><p class="amount">¥{{ order.total_amount.toFixed(2) }}</p></div>
       </section>
       <section class="card"><h2>收货信息</h2><dl><div><dt>收货人</dt><dd>{{ order.receiver_name }}</dd></div><div><dt>手机号码</dt><dd>{{ order.receiver_phone }}</dd></div><div><dt>收货地址</dt><dd>{{ order.receiver_address }}</dd></div></dl></section>
-      <section class="card"><h2>商品明细</h2><article v-for="item in order.items" :key="item.id" class="item"><RouterLink :to="{ name: 'goods-detail', params: { id: item.goods_id } }"><img :src="toAssetURL(item.goods_picture)" :alt="item.goods_name"></RouterLink><div><strong>{{ item.goods_name }}</strong><p>{{ item.goods_spec || '默认规格' }}</p></div><span>¥{{ item.unit_price.toFixed(2) }} × {{ item.quantity }}</span><strong class="amount">¥{{ item.subtotal.toFixed(2) }}</strong></article></section>
+      <section class="card"><h2>商品明细</h2><article v-for="item in order.items" :key="item.id" class="item"><RouterLink :to="{ name: 'goods-detail', params: { id: item.goods_id } }"><img :src="toAssetURL(item.goods_picture)" :alt="item.goods_name"></RouterLink><div><strong>{{ item.goods_name }}</strong><p>{{ item.goods_spec || '默认规格' }} · {{ item.merchant_name || '平台自营' }}</p><p v-if="item.tracking_no">{{ item.shipping_carrier }}：{{ item.tracking_no }}</p></div><span>¥{{ item.unit_price.toFixed(2) }} × {{ item.quantity }}</span><strong class="amount">¥{{ item.subtotal.toFixed(2) }}</strong></article></section>
       <div class="actions">
         <button v-if="order.status === 'pending'" :disabled="cancelling" @click="cancel">{{ cancelling ? '正在取消……' : '取消订单' }}</button>
+        <button v-if="order.status === 'pending'" :disabled="paying" @click="pay">{{ paying ? '正在支付……' : '模拟支付' }}</button>
+        <button v-if="order.status === 'shipped'" :disabled="confirming" @click="receive">{{ confirming ? '正在确认……' : '确认收货' }}</button>
         <button v-if="(order.status === 'paid' || order.status === 'shipped') && !refundSubmitted" @click="refundOpen = !refundOpen">申请售后 / 退款</button>
         <RouterLink v-if="refundSubmitted" to="/after-sales">申请已提交，查看进度 →</RouterLink>
       </div>

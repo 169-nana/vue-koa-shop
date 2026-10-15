@@ -151,7 +151,7 @@ export const SHOP_AGENT_TOOLS:
           properties: {
             status: {
               type: 'string',
-              enum: ['pending', 'paid', 'cancelled', 'shipped', 'completed'],
+              enum: ['pending', 'paid', 'cancelled', 'shipped', 'completed', 'refunded'],
               description: '订单状态，可省略'
             }
           },
@@ -168,6 +168,59 @@ export const SHOP_AGENT_TOOLS:
           type: 'object',
           properties: { order_id: { type: 'integer', description: '订单ID' } },
           required: ['order_id'],
+          additionalProperties: false
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_after_sale_eligibility',
+        description: '查询当前登录用户某个订单商品是否可以申请售后，以及服务器计算的最大退款金额。用户咨询具体订单售后时必须先调用。',
+        parameters: {
+          type: 'object',
+          properties: {
+            order_id: { type: 'integer', description: '订单ID' },
+            order_item_id: { type: 'integer', description: '订单商品ID，来自订单详情中的order_item_id' },
+            quantity: { type: 'integer', minimum: 1, description: '申请售后的数量' }
+          },
+          required: ['order_id', 'order_item_id', 'quantity'],
+          additionalProperties: false
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'prepare_after_sale_request',
+        description: '仅当登录用户明确要求申请售后，且已经确定订单商品、数量、类型和原因后，准备待用户点击确认的售后申请；不会直接提交。',
+        parameters: {
+          type: 'object',
+          properties: {
+            order_id: { type: 'integer' },
+            order_item_id: { type: 'integer' },
+            quantity: { type: 'integer', minimum: 1 },
+            request_type: { type: 'string', enum: ['refund_only', 'return_refund'], description: '仅退款或退货退款' },
+            reason: { type: 'string', minLength: 5, maxLength: 500 }
+          },
+          required: ['order_id', 'order_item_id', 'quantity', 'request_type', 'reason'],
+          additionalProperties: false
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'create_support_ticket',
+        description: '当登录用户明确要求人工客服、投诉或问题无法解决时，准备一份人工客服工单确认卡；不会在用户点击确认前创建。',
+        parameters: {
+          type: 'object',
+          properties: {
+            order_id: { type: 'integer', description: '可选的关联订单ID' },
+            subject: { type: 'string', minLength: 2, maxLength: 120 },
+            summary: { type: 'string', minLength: 5, maxLength: 500, description: '只概括必要问题，不包含完整聊天或敏感信息' }
+          },
+          required: ['subject', 'summary'],
           additionalProperties: false
         }
       }

@@ -12,7 +12,15 @@ import type {
   AgentKnowledgeRecord,
   AgentMetrics,
   AgentPromptInput,
-  AgentPromptVersion
+  AgentPromptVersion,
+  AdminAfterSaleApplication,
+  AfterSaleDecisionInput,
+  AgentSupportTicket,
+  AgentSupportTicketDecisionInput,
+  RefundStatus,
+  MerchantOrder,
+  OrderStatus,
+  ShipMerchantOrderInput
 } from '../../../shared/api'
 export const login = (data: Credentials) => request.post<LoginResult>('/admin/login', data)
 export const getAdmin = () => request.get<PublicAdmin>('/admin/admin')
@@ -75,3 +83,18 @@ export const runAgentEvaluation = (promptVersionId: number) =>
   request.post<AgentEvalRunResult>('/admin/agent/evaluations/run', {
     prompt_version_id: promptVersionId
   }, { timeout: 180000 })
+
+export const getAgentAfterSales = (status?: RefundStatus) =>
+  request.get<AdminAfterSaleApplication[]>('/admin/agent/after-sales', {
+    params: status ? { status } : undefined
+  })
+export const decideAgentAfterSale = (data: AfterSaleDecisionInput) =>
+  request.post<null>('/admin/agent/after-sales/decision', data)
+export const getAgentSupportTickets = () =>
+  request.get<AgentSupportTicket[]>('/admin/agent/support-tickets')
+export const updateAgentSupportTicket = (data: AgentSupportTicketDecisionInput) =>
+  request.post<null>('/admin/agent/support-tickets/update', data)
+export const getPlatformOrders = (status?: OrderStatus) =>
+  request.get<MerchantOrder[]>('/admin/orders/list', { params: status ? { status } : {} })
+export const shipPlatformOrder = (data: ShipMerchantOrderInput) =>
+  request.post<null>('/admin/orders/ship', data)

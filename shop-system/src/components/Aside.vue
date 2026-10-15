@@ -20,6 +20,7 @@
             <span>商品管理</span>
           </el-menu-item>
         </router-link>
+        <router-link v-if="admin.role === 'admin'" :to="{name:'orders'}"><el-menu-item index="9"><el-icon><Tickets /></el-icon><span>订单履约</span></el-menu-item></router-link>
         <router-link :to="{name:'merchant-review'}"><el-menu-item index="3"><el-icon><Checked /></el-icon><span>商家审核</span></el-menu-item></router-link>
         <router-link :to="{name:'goods-review'}"><el-menu-item index="4"><el-icon><DocumentChecked /></el-icon><span>商品审核</span></el-menu-item></router-link>
         <router-link :to="{name:'governance'}"><el-menu-item index="5"><el-icon><WarningFilled /></el-icon><span>违规与记录</span></el-menu-item></router-link>
@@ -39,7 +40,7 @@
   </el-row>
 </template>
 <script setup lang="ts">
-import { ChatLineRound, Checked, DocumentChecked, HomeFilled, Setting, ShoppingCartFull, UserFilled, WarningFilled } from '@element-plus/icons-vue'
+import { ChatLineRound, Checked, DocumentChecked, HomeFilled, Setting, ShoppingCartFull, Tickets, UserFilled, WarningFilled } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import router from '../router'
 import useAdmin from '../stores/admin'
@@ -49,6 +50,7 @@ const menuIndex: Record<string, string> = {
   'index':'1',
   'category':'2',
   'goods':'2',
+  'orders':'9',
   'merchant-review':'3',
   'goods-review':'4',
   'governance':'5',

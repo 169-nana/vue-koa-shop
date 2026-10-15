@@ -40,6 +40,8 @@ router.post(
   agentActionRateLimit,
   shopAgentController.confirmAddToCart
 )
+router.post('/actions/after-sale', userAuth, agentActionRateLimit, shopAgentController.confirmAfterSale)
+router.post('/actions/support-ticket', userAuth, agentActionRateLimit, shopAgentController.confirmSupportTicket)
 
 router.post('/events/product-click', agentEventRateLimit, shopAgentController.trackProductClick)
 router.post(
@@ -50,5 +52,11 @@ router.post(
 )
 router.post('/feedback', agentEventRateLimit, shopAgentController.feedback)
 router.post('/feedback-auth', userAuth, agentEventRateLimit, shopAgentController.feedback)
+router.get('/history', userAuth, shopAgentController.history)
+router.post('/history/clear', userAuth, shopAgentController.clearHistory)
+router.post('/requests/cancel', userAuth, shopAgentController.cancelRequest)
+router.get('/conversations', userAuth, shopAgentController.conversations)
+router.post('/conversations', userAuth, shopAgentController.createConversation)
+router.post('/conversations/delete', userAuth, shopAgentController.deleteConversation)
 
 export default router

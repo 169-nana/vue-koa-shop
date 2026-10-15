@@ -14,12 +14,18 @@ import {
 } from '../service/agentCatalog'
 import { searchAgentKnowledge } from '../service/agentKnowledge'
 import { prepareAddToCart } from '../service/agentCartAction'
+import {
+  getAfterSaleEligibility,
+  prepareAfterSale
+} from '../service/agentAfterSaleAction'
+import { prepareSupportTicket } from '../service/agentSupportTicket'
+import type { AgentActionContext } from '../service/agentActionToken'
 import * as cartService from '../service/cart'
 import * as goodsService from '../service/goods'
 import * as orderService from '../service/order'
 
 const ORDER_STATUSES: OrderStatus[] = [
-  'pending', 'paid', 'cancelled', 'shipped', 'completed'
+  'pending', 'paid', 'cancelled', 'shipped', 'completed', 'refunded'
 ]
 
 export interface ShopAgentToolResult {
@@ -82,7 +88,8 @@ function toModelProduct(product: Goods) {
 
 export async function executeShopAgentTool(
   call: ChatCompletionMessageFunctionToolCall,
-  userId?: number
+  userId?: number,
+  actionContext?: AgentActionContext
 ): Promise<ShopAgentToolResult> {
   const args =
     parseArguments(call.function.arguments)
@@ -180,7 +187,8 @@ export async function executeShopAgentTool(
         userId,
         productId,
         quantity,
-        typeof selectedSpec === 'string' ? selectedSpec : undefined
+        typeof selectedSpec === 'string' ? selectedSpec : undefined,
+        actionContext
       )
       return {
         content: JSON.stringify({
@@ -251,6 +259,7 @@ export async function executeShopAgentTool(
           total_amount: order.total_amount,
           created_at: order.created_at,
           items: order.items.slice(0, 50).map(item => ({
+            order_item_id: item.id,
             goods_id: item.goods_id,
             goods_name: cleanText(item.goods_name) ?? '',
             goods_spec: cleanText(item.goods_spec),
@@ -261,6 +270,83 @@ export async function executeShopAgentTool(
         }
       }),
       products: []
+    }
+  }
+
+  if (call.function.name === 'get_after_sale_eligibility') {
+    if (userId === undefined) return errorResult('请先登录商城账号后再查询售后资格')
+    const orderId = args.order_id
+    const orderItemId = args.order_item_id
+    const quantity = args.quantity
+    if (typeof orderId !== 'number' || !Number.isInteger(orderId) || orderId <= 0 ||
+      typeof orderItemId !== 'number' || !Number.isInteger(orderItemId) || orderItemId <= 0 ||
+      typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity <= 0) {
+      return errorResult('订单、订单商品或申请数量不正确')
+    }
+    try {
+      return {
+        content: JSON.stringify({ eligibility: await getAfterSaleEligibility(userId, orderId, orderItemId, quantity) }),
+        products: []
+      }
+    } catch (error: unknown) {
+      return errorResult(error instanceof Error ? error.message : '无法判断售后资格')
+    }
+  }
+
+  if (call.function.name === 'prepare_after_sale_request') {
+    if (userId === undefined) return errorResult('请先登录商城账号后再申请售后')
+    const orderId = args.order_id
+    const orderItemId = args.order_item_id
+    const quantity = args.quantity
+    const requestType = args.request_type
+    const reason = args.reason
+    if (typeof orderId !== 'number' || !Number.isInteger(orderId) || orderId <= 0 ||
+      typeof orderItemId !== 'number' || !Number.isInteger(orderItemId) || orderItemId <= 0 ||
+      typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity <= 0 ||
+      (requestType !== 'refund_only' && requestType !== 'return_refund') ||
+      typeof reason !== 'string' || reason.trim().length < 5 || reason.length > 500) {
+      return errorResult('售后申请参数不完整')
+    }
+    try {
+      const pendingAction = await prepareAfterSale(userId, {
+        orderId, orderItemId, quantity, requestType, reason: reason.trim()
+      }, actionContext)
+      return {
+        content: JSON.stringify({
+          confirmation_required: true,
+          title: pendingAction.title,
+          description: pendingAction.description,
+          expires_at: pendingAction.expires_at
+        }),
+        products: [],
+        pendingAction
+      }
+    } catch (error: unknown) {
+      return errorResult(error instanceof Error ? error.message : '无法准备售后申请')
+    }
+  }
+
+  if (call.function.name === 'create_support_ticket') {
+    if (userId === undefined) return errorResult('请先登录商城账号后再联系人工客服')
+    const orderId = args.order_id
+    const subject = args.subject
+    const summary = args.summary
+    if ((orderId !== undefined && (typeof orderId !== 'number' || !Number.isInteger(orderId) || orderId <= 0)) ||
+      typeof subject !== 'string' || subject.trim().length < 2 || subject.length > 120 ||
+      typeof summary !== 'string' || summary.trim().length < 5 || summary.length > 500) {
+      return errorResult('人工客服工单参数不完整')
+    }
+    try {
+      const pendingAction = await prepareSupportTicket(userId, {
+        orderId: typeof orderId === 'number' ? orderId : null,
+        subject: subject.trim(), summary: summary.trim()
+      }, actionContext)
+      return {
+        content: JSON.stringify({ confirmation_required: true, title: pendingAction.title }),
+        products: [], pendingAction
+      }
+    } catch (error: unknown) {
+      return errorResult(error instanceof Error ? error.message : '无法准备人工客服工单')
     }
   }
 

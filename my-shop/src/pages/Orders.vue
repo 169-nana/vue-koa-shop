@@ -16,9 +16,10 @@ const tabs: { label: string; status?: OrderStatus }[] = [
   { label: '待发货', status: 'paid' },
   { label: '待收货', status: 'shipped' },
   { label: '已完成', status: 'completed' },
-  { label: '已取消', status: 'cancelled' }
+  { label: '已取消', status: 'cancelled' },
+  { label: '已退款', status: 'refunded' }
 ]
-const statuses: OrderStatus[] = ['pending', 'paid', 'shipped', 'completed', 'cancelled']
+const statuses: OrderStatus[] = ['pending', 'paid', 'shipped', 'completed', 'cancelled', 'refunded']
 
 function routeStatus(): OrderStatus | undefined {
   return typeof route.query.status === 'string'

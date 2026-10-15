@@ -21,7 +21,14 @@ export interface AgentCallLogInput {
 export interface AgentConversionInput {
   userId?: number
   requestKey: string
-  eventType: 'product_click' | 'action_prepared' | 'add_to_cart'
+  eventType:
+    | 'product_click'
+    | 'action_prepared'
+    | 'add_to_cart'
+    | 'after_sale_consulted'
+    | 'after_sale_prepared'
+    | 'after_sale_submitted'
+    | 'support_ticket_created'
   goodsId?: number
   actionId?: string
 }

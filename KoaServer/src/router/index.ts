@@ -20,6 +20,7 @@ import moderationRouter from './moderation'
 import governanceRouter from './governance'
 import shopAgentRouter from './shopAgent'
 import agentOperationsRouter from './agentOperations'
+import paymentRouter from './payment'
 
 const router = new Router<AppState>()
 
@@ -54,6 +55,8 @@ router.use(cartRouter.allowedMethods())
 // 挂载前台订单路由
 router.use(orderRouter.routes())
 router.use(orderRouter.allowedMethods())
+router.use(paymentRouter.routes())
+router.use(paymentRouter.allowedMethods())
 
 // 挂载前台收货地址路由
 router.use(addressRouter.routes())

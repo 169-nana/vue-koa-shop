@@ -4,6 +4,9 @@ import type {
   MerchantApplicationState,
   MerchantGoodsItem,
   SaleStatusUpdateInput,
+  MerchantOrder,
+  OrderStatus,
+  ShipMerchantOrderInput,
   StockUpdateInput
 } from '../../../shared/api'
 import type { AppMiddleware } from '../types'
@@ -140,4 +143,25 @@ export const updateSaleStatus: AppMiddleware<SaleStatusUpdateInput> = async ctx 
     await merchantService.updateSaleStatus(ctx.state.merchant!.id, id, saleStatus)
     ctx.body = success({ id, sale_status: saleStatus })
   } catch (error) { const message = appErrorMessage(error); if (message) { ctx.body = fail(message); return }; throw error }
+}
+
+export const listOrders: AppMiddleware<MerchantOrder[]> = async ctx => {
+  const raw = ctx.query.status
+  const statuses: OrderStatus[] = ['pending', 'paid', 'cancelled', 'shipped', 'completed', 'refunded']
+  const status = typeof raw === 'string' ? statuses.find(item => item === raw) : undefined
+  if (raw !== undefined && !status) { ctx.body = fail('订单状态不正确'); return }
+  ctx.body = success(await merchantService.listOrders(ctx.state.merchant!.id, status))
+}
+
+export const shipOrder: AppMiddleware<null> = async ctx => {
+  const body = getBody(ctx.request.body)
+  const orderId = Number(body.order_id)
+  const shippingCarrier = typeof body.shipping_carrier === 'string' ? body.shipping_carrier.trim() : ''
+  const trackingNo = typeof body.tracking_no === 'string' ? body.tracking_no.trim() : ''
+  if (!Number.isInteger(orderId) || orderId <= 0) { ctx.body = fail('订单ID不正确'); return }
+  if (shippingCarrier.length < 2 || shippingCarrier.length > 100) { ctx.body = fail('物流公司应为2到100个字符'); return }
+  if (!/^[a-zA-Z0-9-]{4,100}$/.test(trackingNo)) { ctx.body = fail('运单号格式不正确'); return }
+  const input: ShipMerchantOrderInput = { order_id: orderId, shipping_carrier: shippingCarrier, tracking_no: trackingNo }
+  try { await merchantService.shipOrder(ctx.state.merchant!.id, input); ctx.body = success() }
+  catch (error) { const message = appErrorMessage(error); if (message) { ctx.body = fail(message); return }; throw error }
 }

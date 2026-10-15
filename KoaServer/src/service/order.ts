@@ -24,8 +24,13 @@ const ORDER_STATUSES: OrderStatus[] = [
   'paid',
   'cancelled',
   'shipped',
-  'completed'
+  'completed',
+  'refunded'
 ]
+
+const PAYMENT_TTL_MINUTES = 30
+const toIso = (value: Date | string | null | undefined): string | null =>
+  value ? (value instanceof Date ? value.toISOString() : value) : null
 
 function getOrderStatus(value: string): OrderStatus {
   const status = ORDER_STATUSES.find(item => item === value)
@@ -52,7 +57,11 @@ function toOrderSummary(row: OrderRow): OrderSummary {
     receiver_name: row.receiver_name,
     created_at: row.created_at instanceof Date
       ? row.created_at.toISOString()
-      : row.created_at
+      : row.created_at,
+    payment_expires_at: toIso(row.payment_expires_at),
+    paid_at: toIso(row.paid_at),
+    shipped_at: toIso(row.shipped_at),
+    completed_at: toIso(row.completed_at)
   }
 }
 
@@ -65,7 +74,13 @@ function toOrderItem(row: OrderItemRow): OrderItem {
     goods_spec: row.goods_spec,
     unit_price: Number(row.unit_price),
     quantity: row.quantity,
-    subtotal: Number(row.subtotal)
+    subtotal: Number(row.subtotal),
+    merchant_id: row.merchant_id ?? null,
+    merchant_name: row.merchant_name ?? null,
+    fulfillment_status: row.fulfillment_status === 'shipped' ? 'shipped' : 'pending',
+    shipping_carrier: row.shipping_carrier ?? '',
+    tracking_no: row.tracking_no ?? '',
+    shipped_at: toIso(row.shipped_at)
   }
 }
 
@@ -76,6 +91,7 @@ export const create = async (
   const connection = await db.getConnection()
   const cartIds = [...(input.cart_item_ids ?? [])].sort((a, b) => a - b)
   const placeholders = cartIds.map(() => '?').join(', ')
+  const paymentExpiresAt = new Date(Date.now() + PAYMENT_TTL_MINUTES * 60_000)
 
   try {
     await connection.beginTransaction()
@@ -108,7 +124,10 @@ export const create = async (
             g.price AS unit_price,
             ? AS quantity,
             g.stock
+            ,g.merchant_id
+            ,m.shop_name AS merchant_name
           FROM vueshop_goods AS g
+          LEFT JOIN vueshop_merchant AS m ON m.id = g.merchant_id
           WHERE g.id = ? AND g.sale_status = 'on_sale'
           LIMIT 1
           FOR UPDATE
@@ -130,9 +149,12 @@ export const create = async (
             g.spec AS available_spec,
             g.price AS unit_price,
             g.stock
+            ,g.merchant_id
+            ,m.shop_name AS merchant_name
           FROM vueshop_cart AS c
           INNER JOIN vueshop_goods AS g
             ON g.id = c.goods_id
+          LEFT JOIN vueshop_merchant AS m ON m.id = g.merchant_id
           WHERE c.user_id = ?
             AND c.id IN (${placeholders})
             AND g.sale_status = 'on_sale'
@@ -171,8 +193,9 @@ export const create = async (
           receiver_name,
           receiver_phone,
           receiver_address
+          ,payment_expires_at
         )
-        VALUES (?, ?, 'pending', ?, ?, ?, ?)
+        VALUES (?, ?, 'pending', ?, ?, ?, ?, ?)
       `,
       [
         orderNo,
@@ -180,16 +203,19 @@ export const create = async (
         totalAmount,
         address.receiver_name,
         address.receiver_phone,
-        address.receiver_address
+        address.receiver_address,
+        paymentExpiresAt
       ]
     )
 
-    const itemPlaceholders = rows.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ')
+    const itemPlaceholders = rows.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')
     const itemValues = rows.flatMap(item => {
       const subtotal = (moneyToCents(item.unit_price) * item.quantity / 100).toFixed(2)
       return [
         orderResult.insertId,
         item.goods_id,
+        item.merchant_id,
+        item.merchant_name,
         item.goods_name,
         item.goods_picture,
         item.goods_spec,
@@ -204,6 +230,8 @@ export const create = async (
         INSERT INTO vueshop_order_item (
           order_id,
           goods_id,
+          merchant_id,
+          merchant_name,
           goods_name,
           goods_picture,
           goods_spec,
@@ -244,7 +272,11 @@ export const create = async (
     }
 
     await connection.commit()
-    return { id: orderResult.insertId, order_no: orderNo }
+    return {
+      id: orderResult.insertId,
+      order_no: orderNo,
+      payment_expires_at: paymentExpiresAt.toISOString()
+    }
   } catch (error) {
     await connection.rollback()
     throw error
@@ -268,7 +300,7 @@ export const findByUserId = async (
         receiver_name,
         receiver_phone,
         receiver_address,
-        created_at
+        created_at, payment_expires_at, paid_at, shipped_at, completed_at
       FROM vueshop_order
       WHERE user_id = ?
         AND (? IS NULL OR status = ?)
@@ -294,7 +326,7 @@ export const findDetail = async (
         receiver_name,
         receiver_phone,
         receiver_address,
-        created_at
+        created_at, payment_expires_at, paid_at, shipped_at, completed_at
       FROM vueshop_order
       WHERE id = ? AND user_id = ?
       LIMIT 1
@@ -316,6 +348,7 @@ export const findDetail = async (
         unit_price,
         quantity,
         subtotal
+        ,merchant_id, merchant_name, fulfillment_status, shipping_carrier, tracking_no, shipped_at
       FROM vueshop_order_item
       WHERE order_id = ?
       ORDER BY id ASC
@@ -336,6 +369,10 @@ export const cancel = async (userId: number, orderId: number): Promise<void> => 
 
   try {
     await connection.beginTransaction()
+    await connection.execute(
+      "SELECT id FROM vueshop_payment_order WHERE order_id = ? AND status = 'pending' FOR UPDATE",
+      [orderId]
+    )
     const [orders] = await connection.execute<OrderRow[]>(
       `
         SELECT
@@ -347,7 +384,7 @@ export const cancel = async (userId: number, orderId: number): Promise<void> => 
           receiver_name,
           receiver_phone,
           receiver_address,
-          created_at
+          created_at, payment_expires_at, paid_at, shipped_at, completed_at
         FROM vueshop_order
         WHERE id = ? AND user_id = ?
         LIMIT 1
@@ -374,6 +411,7 @@ export const cancel = async (userId: number, orderId: number): Promise<void> => 
           unit_price,
           quantity,
           subtotal
+          ,merchant_id, merchant_name, fulfillment_status, shipping_carrier, tracking_no, shipped_at
         FROM vueshop_order_item
         WHERE order_id = ?
         ORDER BY goods_id ASC
@@ -389,7 +427,11 @@ export const cancel = async (userId: number, orderId: number): Promise<void> => 
     }
 
     await connection.execute(
-      "UPDATE vueshop_order SET status = 'cancelled' WHERE id = ?",
+      "UPDATE vueshop_order SET status = 'cancelled', cancelled_at = NOW() WHERE id = ?",
+      [orderId]
+    )
+    await connection.execute(
+      "UPDATE vueshop_payment_order SET status = 'closed', closed_at = NOW() WHERE order_id = ? AND status = 'pending'",
       [orderId]
     )
     await connection.commit()
@@ -399,4 +441,25 @@ export const cancel = async (userId: number, orderId: number): Promise<void> => 
   } finally {
     connection.release()
   }
+}
+
+export const confirmReceipt = async (userId: number, orderId: number): Promise<void> => {
+  const [result] = await db.execute<ResultSetHeader>(
+    `UPDATE vueshop_order SET status = 'completed', completed_at = NOW()
+     WHERE id = ? AND user_id = ? AND status = 'shipped'`,
+    [orderId, userId]
+  )
+  if (result.affectedRows !== 1) {
+    throw new AppError('订单不存在或当前状态不能确认收货', 'ORDER_STATUS_INVALID')
+  }
+}
+
+export const autoConfirmDelivered = async (days = 7): Promise<number> => {
+  const [result] = await db.execute<ResultSetHeader>(
+    `UPDATE vueshop_order o SET o.status = 'completed', o.completed_at = NOW()
+     WHERE o.status = 'shipped' AND o.shipped_at <= DATE_SUB(NOW(), INTERVAL ? DAY)
+       AND NOT EXISTS (SELECT 1 FROM vueshop_order_refund r
+         WHERE r.order_id = o.id AND r.status = 'pending')`, [days]
+  )
+  return result.affectedRows
 }

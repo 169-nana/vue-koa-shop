@@ -40,14 +40,23 @@ import type {
   PageResult,
   SaleStatusUpdateInput,
   ShopAgentChatInput,
+  ShopAgentCancelInput,
+  ShopAgentCancelResult,
   ShopAgentActionInput,
   ShopAgentActionResult,
+  ShopAgentAfterSaleActionResult,
+  ShopAgentConversation,
+  ShopAgentHistoryPage,
+  ShopAgentSupportActionResult,
   ShopAgentPendingAction,
   AgentFeedbackInput,
   ShopAgentReply,
   ShopAgentStreamEvent,
   StockUpdateInput,
-  UnreadCount
+  UnreadCount,
+  PaymentOrder,
+  MerchantOrder,
+  ShipMerchantOrderInput
 } from '../../../shared/api'
 import config from '../config'
 
@@ -139,6 +148,12 @@ export const getOrderDetail = (id: number) =>
 
 export const cancelOrder = (id: number) =>
   request.post<null>('/home/order/cancel', { id })
+export const createPayment = (orderId: number) =>
+  request.post<PaymentOrder>('/home/payment/create', { order_id: orderId })
+export const mockPay = (paymentNo: string) =>
+  request.post<PaymentOrder>('/home/payment/mock-pay', { payment_no: paymentNo })
+export const confirmReceipt = (orderId: number) =>
+  request.post<null>('/home/order/confirm-receipt', { order_id: orderId })
 
 export const getAddresses = () =>
   request.get<UserAddress[]>('/home/address/list')
@@ -215,6 +230,10 @@ export const updateMerchantStock = (merchantId: number, data: StockUpdateInput) 
   request.post<StockUpdateInput>('/home/merchant/goods/stock', data, merchantParams(merchantId))
 export const updateMerchantSaleStatus = (merchantId: number, data: SaleStatusUpdateInput) =>
   request.post<SaleStatusUpdateInput>('/home/merchant/goods/sale-status', data, merchantParams(merchantId))
+export const getMerchantOrders = (merchantId: number, status?: OrderStatus) =>
+  request.get<MerchantOrder[]>('/home/merchant/orders', { ...merchantParams(merchantId), params: { merchant_id: merchantId, ...(status ? { status } : {}) } })
+export const shipMerchantOrder = (merchantId: number, data: ShipMerchantOrderInput) =>
+  request.post<null>('/home/merchant/orders/ship', data, merchantParams(merchantId))
 export const getNotifications = (params: NotificationQuery = {}) =>
   request.get<PageResult<NotificationItem>>('/home/notifications', { params })
 export const getUnreadNotificationCount = () => request.get<UnreadCount>('/home/notifications/unread-count')
@@ -229,6 +248,30 @@ export const chatWithShopAgent = (
   data,
   { timeout: 45000 }
 )
+
+export const getShopAgentHistory = (conversationId: number, beforeId?: number) =>
+  request.get<ShopAgentHistoryPage>('/home/agent/history', {
+    params: {
+      conversation_id: conversationId,
+      pagesize: 20,
+      ...(beforeId === undefined ? {} : { before_id: beforeId })
+    }
+  })
+
+export const clearShopAgentHistory = (conversationId: number) =>
+  request.post<null>('/home/agent/history/clear', { conversation_id: conversationId })
+
+export const cancelShopAgentRequest = (data: ShopAgentCancelInput) =>
+  request.post<ShopAgentCancelResult>('/home/agent/requests/cancel', data)
+
+export const getShopAgentConversations = () =>
+  request.get<ShopAgentConversation[]>('/home/agent/conversations')
+
+export const createShopAgentConversation = () =>
+  request.post<ShopAgentConversation>('/home/agent/conversations', {})
+
+export const deleteShopAgentConversation = (id: number) =>
+  request.post<null>('/home/agent/conversations/delete', { id })
 
 export interface ShopAgentStreamHandlers {
   onMeta: (requestId: string) => void
@@ -251,7 +294,8 @@ function isStreamEvent(value: unknown): value is ShopAgentStreamEvent {
       return false
     }
     const action = value.action
-    return 'type' in action && action.type === 'add_to_cart' &&
+    return 'type' in action &&
+      (action.type === 'add_to_cart' || action.type === 'apply_after_sale' || action.type === 'create_support_ticket') &&
       'token' in action && typeof action.token === 'string' &&
       'title' in action && typeof action.title === 'string' &&
       'description' in action && typeof action.description === 'string' &&
@@ -334,6 +378,12 @@ export async function streamWithShopAgent(
 
 export const confirmAgentAddToCart = (data: ShopAgentActionInput) =>
   request.post<ShopAgentActionResult>('/home/agent/actions/add-to-cart', data)
+
+export const confirmAgentAfterSale = (data: ShopAgentActionInput) =>
+  request.post<ShopAgentAfterSaleActionResult>('/home/agent/actions/after-sale', data)
+
+export const confirmAgentSupportTicket = (data: ShopAgentActionInput) =>
+  request.post<ShopAgentSupportActionResult>('/home/agent/actions/support-ticket', data)
 
 export const trackAgentProductClick = (goodsId: number, authenticated: boolean) =>
   request.post<null>(

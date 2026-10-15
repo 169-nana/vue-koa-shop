@@ -21,5 +21,9 @@ router.post('/prompts/publish', ...write, controller.promptPublish)
 router.get('/eval-cases', ...read, controller.evalCaseList)
 router.post('/eval-cases/save', ...write, controller.evalCaseSave)
 router.post('/evaluations/run', ...write, controller.evalRun)
+router.get('/after-sales', ...read, controller.afterSaleList)
+router.post('/after-sales/decision', ...write, controller.afterSaleDecision)
+router.get('/support-tickets', ...read, controller.supportTicketList)
+router.post('/support-tickets/update', ...write, controller.supportTicketUpdate)
 
 export default router
